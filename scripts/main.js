@@ -5,6 +5,7 @@ import { QuestSheet } from "./apps/quest-sheet.js";
 import { registerImageSocket } from "./images.js";
 import { registerContextMenus, addToQuestLog } from "./capture.js";
 import { exportQuests, importQuests } from "./transfer.js";
+import { DeleteAllQuestsMenu, confirmDeleteAll } from "./delete-all.js";
 import { registerQuestLinks, registerAdventureHooks, tidyStoresOnReady, importAdventureQuests, storeInAdventure } from "./adventure.js";
 
 /* -------------------------------------------- */
@@ -32,6 +33,15 @@ function registerSettings() {
     name: "DXQL.Settings.ImageFolder.Name",
     hint: "DXQL.Settings.ImageFolder.Hint",
     scope: "world", config: true, type: String, default: ""
+  });
+  // GM only, and only here in the settings (not in the Quest Log tab), so the log isn't wiped by accident.
+  game.settings.registerMenu(MODULE_ID, "deleteAll", {
+    name: "DXQL.Settings.DeleteAll.Name",
+    label: "DXQL.Settings.DeleteAll.Label",
+    hint: "DXQL.Settings.DeleteAll.Hint",
+    icon: "fa-solid fa-trash",
+    type: DeleteAllQuestsMenu,
+    restricted: true
   });
   game.settings.register(MODULE_ID, "categoryTagsPrompt", {
     scope: "world", config: false, type: Boolean, default: true
@@ -169,7 +179,8 @@ Hooks.once("ready", async () => {
       storeInAdventure,
       setPartHidden: store.setPartHidden,
       setFieldHidden: store.setFieldHidden,
-      convertCategoryTags: store.convertCategoryTags
+      convertCategoryTags: store.convertCategoryTags,
+      deleteAllQuests: confirmDeleteAll
     };
   } catch (err) {
     console.error(`${MODULE_ID} | ready`, err);

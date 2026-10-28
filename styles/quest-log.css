@@ -989,6 +989,14 @@
 .dxql-transfer .dxql-transfer-mode.danger:has(input:checked) { border-color: var(--dxql-fail); background: var(--dxql-fail-soft); }
 .dxql-transfer .dxql-transfer-mode input { margin-top: 3px; }
 
+/* Delete all quests (settings) */
+.dxql-delete-all .dxql-delete-all-export { align-self: flex-start; width: auto; }
+.dxql-delete-all .dxql-delete-all-word { display: flex; flex-direction: column; gap: 4px; }
+.dxql-delete-all .dxql-delete-all-word input { font-family: var(--font-mono, monospace); letter-spacing: 0.05em; }
+button.dxql-danger:not(:disabled) { border-color: #b8332e; background: rgba(184, 51, 46, 0.85); color: #fff; }
+button.dxql-danger:not(:disabled):hover { background: #b8332e; }
+button.dxql-danger:disabled { opacity: 0.5; cursor: not-allowed; }
+
 .dxql .dxql-draft-note {
   margin: 0;
   padding: 4px 8px;

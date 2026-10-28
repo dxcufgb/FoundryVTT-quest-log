@@ -362,6 +362,31 @@ export async function deleteQuest(id) {
   return found.store.update({ [`${FLAG_PATH}.-=${id}`]: null }, { [MODULE_ID]: { type: "deleted", questId: id } });
 }
 
+/** How many quests are in each store: {shared, secret, total}. */
+export function countQuests() {
+  const counts = { total: 0 };
+  for (const kind of STORE_KINDS) {
+    const raw = getStore(kind)?.getFlag(MODULE_ID, "quests") ?? {};
+    counts[kind] = Object.values(raw).filter(q => q && typeof q === "object").length;
+    counts.total += counts[kind];
+  }
+  return counts;
+}
+
+/** GM only: deletes every quest in both stores (the store journals stay). Returns how many were deleted. */
+export async function deleteAllQuests() {
+  if (!game.user.isGM) return 0;
+  let deleted = 0;
+  for (const kind of STORE_KINDS) {
+    const store = getStore(kind);
+    const raw = store?.getFlag(MODULE_ID, "quests") ?? {};
+    if (!Object.keys(raw).length) continue;
+    await store.update({ [`flags.${MODULE_ID}.-=quests`]: null }, { [MODULE_ID]: { type: "deleted-all" } });
+    deleted += Object.values(raw).filter(q => q && typeof q === "object").length;
+  }
+  return deleted;
+}
+
 /** GM only: move a quest between the shared and the secret store. */
 export async function setHidden(id, hidden) {
   if (!game.user.isGM) return;
