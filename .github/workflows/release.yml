@@ -43,3 +43,5 @@ jobs:
         with:
           version: ${{ inputs.version }}
           github-token: ${{ github.token }}
+          # Optional: asks the Workshop site to rebuild once the release is out. Without the secret nothing changes.
+          site-dispatch-token: ${{ secrets.SITE_DISPATCH_TOKEN }}
