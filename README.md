@@ -6,6 +6,8 @@
 [![CI](https://img.shields.io/github/actions/workflow/status/dxcufgb/FoundryVTT-quest-log/ci.yml?branch=main&label=CI)](https://github.com/dxcufgb/FoundryVTT-quest-log/actions/workflows/ci.yml)
 [![License](https://img.shields.io/github/license/dxcufgb/FoundryVTT-quest-log)](LICENSE)
 
+<a href="https://dxcufgb.github.io/FVTT-dev-showcase/"><img src="https://dxcufgb.github.io/FVTT-dev-showcase/assets/img/workshop-badge.png" alt="Dxcufgb's Workshop: every Foundry VTT project, video and changelog in one place" width="650"></a>
+
 A shared quest log for the whole table, in its own tab in the right sidebar. Players and the GM add quests, write down where they were picked up, who gave them and where they take place, keep notes and clues, add objectives as they come up and tick them off. Everything is searchable, and quests can be grouped by location, quest giver or tag.
 
 **Foundry VTT:** v13 · **System:** any
