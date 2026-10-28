@@ -198,6 +198,11 @@
       "SelectionMenu": {
         "Name": "Right-click menu for selected text",
         "Hint": "Right-clicking selected text (in chat, journals, sheets) opens a menu to add it to the quest log. Hold Shift to get the normal menu."
+      },
+      "DeleteAll": {
+        "Name": "Delete all quests",
+        "Label": "Delete all quests…",
+        "Hint": "Deletes every quest in the log, hidden ones included, with their objectives, notes, clues and images. Asks for confirmation first and lets you export the log before deleting. It can't be undone."
       }
     },
     "Transfer": {
@@ -286,6 +291,18 @@
       "Later": "Ask me later",
       "Never": "Keep the tags",
       "Done": "Converted the tags of {count} quests into main/side quest and chapter."
+    },
+    "DeleteAll": {
+      "Title": "Delete all quests",
+      "Body": "This deletes <b>all {count} quests</b> in the quest log for everyone, with their objectives, stages, notes, clues and images. It can't be undone.",
+      "HiddenNote": "{count} of them are hidden from players.",
+      "ExportHint": "Export the log first if you might want it back. Uploaded image files stay in the image folder.",
+      "ExportFirst": "Export the quest log first…",
+      "TypeWord": "Type {word} to confirm:",
+      "Word": "DELETE",
+      "Delete": "Delete all quests",
+      "Empty": "The quest log is already empty.",
+      "Done": "Deleted all {count} quests from the quest log."
     }
   }
 }

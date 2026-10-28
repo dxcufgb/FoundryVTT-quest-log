@@ -33,6 +33,9 @@ selected text. System-agnostic. No build step and no npm dependencies.
   to the active GM.
 - `scripts/transfer.js` – GM export (JSON with author names added) and import (`sanitizeQuest` rebuilds every quest
   from the file field by field; merge replaces quests with the same id, replace clears both stores first).
+- `scripts/delete-all.js` – *Delete all quests*: a GM-only settings menu (`registerMenu`, `restricted`) whose
+  `DeleteAllQuestsMenu.render()` opens a confirmation (type the word, optional export first) and calls
+  `store.deleteAllQuests` (`-=quests` on both stores; the store journals stay). Deliberately not in the Quest Log tab.
 - `scripts/adventure.js` – quests stored on an Adventure (`flags.dxcufgbs-quest-log.questLog`, export format) are
   imported on the `importAdventure` hook (hidden by default, existing ids skipped); `consolidateStores` merges
   duplicate store journals an adventure brings in; the `@Quest[id]{label}` enricher (and `@Quest[id/<part kind>/<partId>]` for one stage, objective, note or place) with a GM Reveal / Unhide button
