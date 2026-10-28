@@ -1,0 +1,129 @@
+# Dxcufgb's Quest log
+
+[![Foundry v13](https://img.shields.io/github/v/release/dxcufgb/FoundryVTT-quest-log?label=Foundry%20v13&logo=foundryvirtualtabletop&color=ff6400)](https://github.com/dxcufgb/FoundryVTT-quest-log/releases/latest)
+[![Downloads](https://img.shields.io/github/downloads/dxcufgb/FoundryVTT-quest-log/module.zip?label=downloads&color=blue)](https://github.com/dxcufgb/FoundryVTT-quest-log/releases)
+[![Ko-fi](https://img.shields.io/badge/Ko--fi-support-FF5E5B?logo=kofi&logoColor=white)](https://ko-fi.com/dxcufgb)\
+[![CI](https://img.shields.io/github/actions/workflow/status/dxcufgb/FoundryVTT-quest-log/ci.yml?branch=main&label=CI)](https://github.com/dxcufgb/FoundryVTT-quest-log/actions/workflows/ci.yml)
+[![License](https://img.shields.io/github/license/dxcufgb/FoundryVTT-quest-log)](LICENSE)
+
+A shared quest log for the whole table, in its own tab in the right sidebar. Players and the GM add quests, write down where they were picked up, who gave them and where they take place, keep notes and clues, add objectives as they come up and tick them off. Everything is searchable, and quests can be grouped by location, quest giver or tag.
+
+**Foundry VTT:** v13 · **System:** any
+
+## Installation
+
+In Foundry: **Add-on Modules → Install Module**, paste this link into **Manifest URL** at the bottom, and click **Install**:
+
+```
+https://github.com/dxcufgb/FoundryVTT-quest-log/releases/latest/download/module.json
+```
+
+The first time a GM opens the world after enabling the module, the quest log is set up. Players can use it from then on, with or without a GM online.
+
+## Features
+
+- **Quest Log tab in the right sidebar** (the scroll icon, next to Game Settings) for every player and the GM. Right-click the tab icon to pop it out into its own window.
+- **Quests** have a title, a **type** (*Main quest* or *Side quest*), a **chapter**, a **quest giver**, where they were **acquired**, the **places** they take place at, an optional **reward**, a **description**, **tags**, **objectives**, **images** and a log of **notes and clues**.
+  - **Main quest / Side quest** and **Chapter** are categories of their own (one per quest), not tags: pick the type at the top of the edit form and type the chapter (it suggests the chapters already used). Main quests have a crown, side quests a compass, in the list and on the quest.
+  - Worlds whose quests use tags for this (*Main quest*, *Side quest*, *Main story*, *Chapter 3* …) get a one-time question for the GM: **Convert** turns those tags into the categories (only for quests that don't have a type or chapter yet; other tags stay), *Ask me later* asks at the next start, *Keep the tags* never asks again. It can also be run from a macro: `game.modules.get("dxcufgbs-quest-log").api.convertCategoryTags()`.
+  - **Takes place at** can hold several places: type a place and press **Enter** or type a **comma**, and it becomes a token below the field; **×** removes it again (Backspace in the empty field removes the last one). The pin button adds the scene you're on. Every place can be hidden from players on its own.
+  - Drop an actor (or a token) on the quest giver to link it: its portrait is shown and the name opens its sheet.
+  - The location fields suggest places already used and the names of your scenes; the pin button fills in (or adds) the scene you're on.
+  - Drop actors, items, journal entries or scenes into any text to link them (`@UUID` links work everywhere).
+- **Objectives**: add new ones at any time, tick them off, reorder, edit (double-click) and delete them. A progress bar shows how far along the quest is, in the quest window and in the list.
+- **Stages**: a quest can be split into stages, each a heading with a short text (what the party knows now) and its own objectives. *Add Stage* under the objectives adds one; the menu next to *Add* picks which stage a new objective goes into. Stages are a natural thing to prepare hidden: a hidden stage hides its objectives with it, and unhiding it shows the players the new part of the quest in one click (they get a *"New stage in …"* notification).
+- **Quest status**: *Active*, *Completed* or *Failed*. Tick the circle in the list to complete (or reopen) a quest; the quest window also has **Complete**, **Fail** and **Reopen** buttons, and the list's right-click menu has all of them.
+- **Notes and clues**: a running log per quest showing who wrote each entry and when. Switch an entry between note and clue at any time, edit or delete your own entries, and filter the log by notes or clues.
+- **Images** on quests and on notes: upload from your computer, **paste** an image straight into the text box, **drop** image files in, or (if your role may browse files) pick one already on the server. Click an image to view it full size; the GM can show it to everyone from there. Big photos are shrunk to at most 1600 px (WebP) before upload.
+  Players without Foundry's *Upload new files* permission can still add images: their upload goes through the GM's client, so a GM must be online for that.
+- **Search** everything: titles, quest givers, locations, rewards, tags, descriptions, objectives, notes, clues and note authors. Every word you type must match somewhere in the quest. Results show where the match was found, and opening a quest from a search highlights the words in it.
+- **Grouping**: by *Main / side quest* (main quests first), *Chapter* (in chapter order: Chapter 2 before Chapter 10), *Where acquired*, *Where it takes place*, *Quest giver* or *Tag*. A quest with several places or tags shows up under each of them. Click a group header to collapse it.
+- **Tags** keep related quests together. Click a tag in the list to show only quests with that tag; the quest window lists **related quests** that share a tag.
+- **Add things from the game**:
+  - Right-click a **chat message** → *Add to Quest Log…* or *Start a Quest from This*.
+  - Right-click a **journal entry** in the Journal sidebar, or a **page** in a journal's table of contents, the same way.
+  - **Select text** anywhere (chat, journal pages, item and actor sheets) and right-click it: add it as a note, clue or objective, start a new quest from it, or copy it. Hold **Shift** while right-clicking to get the normal menu.
+  The dialog lets you pick the quest (or a new one), the kind of entry and which of the source's images to keep, and you can edit the text first. Notes remember where they came from: the link under the note opens the original message or journal page.
+- **Hidden quests (GM)**: the GM can prepare quests that players can't see and reveal them later (eye button, or the *Hidden from players* box when creating one). Players get a "New quest" notification when it's revealed.
+- **Hidden parts of a quest (GM)**: every part of a quest can be hidden from players on its own, while the rest of the quest stays visible:
+  - each **objective** (so later stages of a quest stay secret until the party gets there), each **note**, each **clue** and each **image**: the eye button on the entry;
+  - each **place** the quest takes place at: the eye button on the place, in the quest window or on its token in the edit form;
+  - the **type** (main/side), the **chapter**, the **quest giver**, **where it was acquired**, the **reward**, the **description** and the **tags**: the eye button on the field, in the quest window or in the edit form.
+  The eye buttons next to *Add* (objectives) and in the note box (notes and clues) make new entries start out hidden, and the *Add to Quest Log* dialog has a *Hidden from players* box. Hidden parts are dashed for the GM, and the quest list shows how many parts of a quest are hidden. Players don't see hidden parts anywhere (quest window, list, search, progress bar, grouping, related quests), and when the GM reveals one they get a notification such as *"New clue in The Missing Blacksmith"*. A player editing the quest can't overwrite a hidden field.
+- **Notifications** when someone adds, reveals, completes, fails or reopens a quest (setting).
+- **Import / export (GM)**: the two buttons next to *Group by* in the Quest Log tab.
+  - **Export** saves the log as a JSON file; choose which statuses to include and whether to include hidden quests and hidden parts (left out, the file has only what players can see).
+  - **Import** reads such a file and either **adds** its quests to the log (a quest that is already in the log is replaced by the version in the file) or **replaces the whole log** (asks again before deleting anything). Hidden quests stay hidden.
+  Author names are saved in the file, so notes imported into another world still show who wrote them. Images are saved as file paths, not embedded: copy the image folder along when moving to another server.
+- **Quests that come with an adventure**: an Adventure compendium can carry a ready-made quest log. When a GM imports the adventure, its quests are added to the log, **hidden from players** (unless the adventure marks a quest as visible), ready for the GM to reveal when the party gets there. Quests that are already in the log are left as they are, so importing the adventure again never resets the party's progress (a quest you deleted comes back, though). Turn it off with *Import quests from adventures*.
+  If an adventure was made from a world that used the quest log and brings the module's two data journals along, their quests are merged into this world's quest log and the extra journals are removed.
+- **Quest links in journals**: write `@Quest[<quest id>]{label}` in a journal page (or chat) to link a quest; right-click a quest in the list → *Copy quest link* to get one. Clicking it opens the quest. For the GM, a link to a hidden quest is dashed and has a **Reveal** button, so an adventure's text can say *"reveal this quest now"* right where it happens. Players see a link only to quests they can see.
+  One stage, objective, note or clue can be linked the same way: `@Quest[<quest id>/stages/<stage id>]{label}` (or `/objectives/`, `/notes/`, `/locations/` for a place). For the GM a hidden part's link has an **Unhide** button. Players only ever see a part link's label, as plain text.
+
+## Permissions
+
+- Everyone can create quests, edit their details, add and tick objectives, add notes, clues and images.
+- Players can delete only what they added themselves (quests, objectives, notes, images), unless the GM turns on *Players can delete anything*. The GM can always delete everything.
+- Only the author (or the GM) can edit or delete a note.
+- Hidden quests and hidden parts of quests are kept out of everything players see. Like any GM-only journal entry, a player who digs into the browser console could still read them; don't rely on it for secrets you'd hide from a determined player.
+
+## Settings
+
+| Setting | Scope | Default | What it does |
+|---|---|---|---|
+| Announce quest changes | World | On | Notification to everyone when a quest is added, revealed, completed, failed or reopened. |
+| Players can delete anything | World | Off | Off: players delete only their own quests, objectives, notes and images. |
+| Import quests from adventures | World | On | Adds the quests stored in an adventure to the quest log (hidden) when a GM imports it. |
+| Image folder | World | *(empty)* | Where uploads go, relative to the data folder. Empty: `worlds/<world>/quest-log`. |
+| Right-click menu for selected text | Client | On | Turns the selected-text menu on or off for you. |
+
+## Where the data lives
+
+Quests are stored in the flags of two journal entries that the module creates the first time a GM joins: *Quest Log (module data, shared)*, owned by everyone, and *Quest Log (module data, GM only)* for hidden quests. Both are hidden from the Journal sidebar. Don't delete them: that deletes the quest log. They're ordinary world documents, so they're included in world backups and exports. Uploaded images are ordinary files in the image folder.
+
+Every change is saved as a small update of just the part that changed, so several people can edit the log at the same time without overwriting each other.
+
+## API
+
+`game.modules.get("dxcufgbs-quest-log").api`:
+
+| Function | |
+|---|---|
+| `open()` | Opens the Quest Log tab. |
+| `openQuest(id)` / `newQuest(prefill)` | Opens a quest's window / the new-quest form (`prefill`: `title`, `questType` (`"main"`/`"side"`), `chapter`, `giver`, `acquiredAt`, `location` (one text; commas split it into places) or `locations` (`[{name, hidden}]`), `reward`, `description`, `tags`, `objectivesText`). |
+| `addToQuestLog({text, images, source, type, title})` | Opens the *Add to Quest Log* dialog (`type`: `note`, `clue`, `objective` or `quest`). |
+| `quests()` / `getQuest(id)` | Quests the current user can see. |
+| `createQuest(data, {hidden})` | Creates a quest and returns its id. |
+| `updateQuest(id, data)`, `setStatus(id, status)`, `addObjective(id, text)`, `addNote(id, {type, text, images})` | Changes a quest. |
+| `exportQuests()` / `importQuests(file?)` | GM: the export dialog / import from a `File` (asks for one when left out). |
+| `importAdventureQuests(adventure)` | GM: adds the quests stored in an Adventure (document or UUID) to the log, skipping ones already there. Returns `{added, skipped, hidden}`. |
+| `storeInAdventure(adventure, {includeHidden})` | GM: stores the world's quest log in an Adventure (its compendium must be unlocked), so the adventure brings its quests along. `includeHidden: false` leaves out hidden quests and hidden parts. |
+| `setPartHidden(id, kind, partId, hidden)` / `setFieldHidden(id, field, hidden)` | GM: hides or reveals one stage, objective, note/clue, image or place (`kind`: `stages`, `objectives`, `notes`, `gallery`, `locations`) / one field (`questType`, `chapter`, `giver`, `acquiredAt`, `reward`, `description`, `tags`). |
+
+### Making an adventure that brings quests
+
+Put the quests in the Adventure document's flags, in the same format as an export file:
+
+```json
+"flags": {
+  "dxcufgbs-quest-log": {
+    "questLog": {
+      "module": "dxcufgbs-quest-log",
+      "format": 1,
+      "quests": [
+        { "id": "myAdvQuest000001", "hidden": true, "title": "The Missing Blacksmith", "giver": "Mayor Holt",
+          "acquiredAt": "The Green Dragon", "location": "The old mine", "reward": "200 gp", "description": "…",
+          "tags": ["Chapter 1"], "hiddenFields": ["reward"],
+          "objectives": { "o1": { "text": "Find the blacksmith", "sort": 1 },
+                          "o2": { "text": "Confront the mayor", "sort": 2, "hidden": true } } }
+      ]
+    }
+  }
+}
+```
+
+The easiest way is to build the quests in a world (hidden, with the GM's quest window) and run `storeInAdventure(uuid)` with the adventure's compendium unlocked, or to paste an export file's contents into `questLog` when building the adventure with the Foundry CLI. Give quests fixed ids (letters and digits, up to 32): the ids are how a re-import recognises quests that are already in the log, and what `@Quest[id]` links point to. A quest without `"hidden"` is imported hidden. `"questType": "main"` or `"side"` and `"chapter": "Chapter 1"` set the categories; places go in `"locations"`, as a list of names or `{"name": "…", "hidden": true}` (an old single `"location"` text still works). Stages (`"stages": {"s1": {"title": "…", "text": "…", "hidden": true, "sort": 1}}`, with `"stage": "s1"` on their objectives), objectives, notes and images with `"hidden": true` and the fields in `"hiddenFields"` stay hidden after the quest itself is revealed, until the GM unhides them.
+
+## License
+
+MIT, see [LICENSE](LICENSE).

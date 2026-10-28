@@ -1,0 +1,73 @@
+<div class="dxql-list">
+  {{#unless ready}}
+  <div class="dxql-empty">
+    <i class="fa-solid fa-hourglass-half" inert></i>
+    <p>{{localize "DXQL.NotReady"}}</p>
+  </div>
+  {{else}}
+  {{#each groups}}
+  <section class="dxql-group {{#if collapsed}}collapsed{{/if}}" data-group="{{key}}">
+    {{#if label}}
+    <button type="button" class="dxql-group-header" data-action="toggleGroup" aria-expanded="{{#if collapsed}}false{{else}}true{{/if}}"
+            {{#if hue}}style="--hue: {{hue}}"{{/if}}>
+      <i class="dxql-caret fa-solid fa-chevron-down" inert></i>
+      <i class="{{icon}} dxql-group-icon {{#if hue}}tinted{{/if}}" inert></i>
+      <span class="dxql-group-label {{#if unknown}}unknown{{/if}}">{{label}}</span>
+      <span class="dxql-count">{{count}}</span>
+    </button>
+    {{/if}}
+    <ol class="dxql-quests">
+      {{#each quests}}
+      <li class="dxql-quest status-{{status}} {{#if hidden}}is-hidden{{/if}}" data-quest-id="{{id}}" data-action="openQuest"
+          tabindex="0" draggable="false">
+        <button type="button" class="dxql-status-toggle" data-action="toggleQuestStatus" data-tooltip="{{toggleTooltip}}"
+                aria-label="{{toggleTooltip}}">
+          <i class="{{statusIcon}}" inert></i>
+        </button>
+        <div class="dxql-quest-body">
+          <div class="dxql-quest-title">
+            {{#if questType}}<i class="{{questTypeIcon}} dxql-type-icon type-{{questType}}" data-tooltip="{{questTypeLabel}}" aria-label="{{questTypeLabel}}"></i>{{/if}}
+            <span>{{title}}</span>
+            {{#if hidden}}<i class="fa-solid fa-eye-slash dxql-hidden-icon" data-tooltip="DXQL.HiddenFromPlayers"></i>
+            {{else if hiddenParts}}<span class="dxql-hidden-parts" data-tooltip="DXQL.HiddenPartsHint"><i class="fa-solid fa-eye-slash" inert></i>{{hiddenParts}}</span>{{/if}}
+          </div>
+          {{#if (or giver (or location chapter))}}
+          <div class="dxql-quest-meta">
+            {{#if chapter}}<span><i class="fa-solid fa-book-bookmark" inert></i>{{chapter}}</span>{{/if}}
+            {{#if giver}}<span><i class="fa-solid fa-user" inert></i>{{giver}}</span>{{/if}}
+            {{#if location}}<span><i class="fa-solid fa-location-dot" inert></i>{{location}}</span>{{/if}}
+          </div>
+          {{/if}}
+          {{#if progress}}
+          <div class="dxql-progress" data-tooltip="{{localize "DXQL.ObjectivesDone" done=progress.done total=progress.total}}">
+            <div class="dxql-progress-bar"><span style="width: {{progress.pct}}%"></span></div>
+            <span class="dxql-progress-text">{{progress.done}}/{{progress.total}}</span>
+          </div>
+          {{/if}}
+          {{#if tags.length}}
+          <div class="dxql-tags">
+            {{#each tags}}
+            <button type="button" class="dxql-tag {{#if active}}active{{/if}}" style="--hue: {{hue}}" data-action="filterTag"
+                    data-tag="{{name}}">{{name}}</button>
+            {{/each}}
+          </div>
+          {{/if}}
+          {{#if snippet}}<div class="dxql-snippet">{{{snippet}}}</div>{{/if}}
+        </div>
+      </li>
+      {{/each}}
+    </ol>
+  </section>
+  {{else}}
+  <div class="dxql-empty">
+    <i class="fa-solid fa-scroll" inert></i>
+    <p>{{emptyMessage}}</p>
+    {{#if searching}}
+    <button type="button" data-action="clearSearch"><i class="fa-solid fa-xmark" inert></i> {{localize "DXQL.ClearSearch"}}</button>
+    {{else}}{{#unless total}}
+    <button type="button" data-action="createQuest"><i class="fa-solid fa-plus" inert></i> {{localize "DXQL.NewQuest"}}</button>
+    {{/unless}}{{/if}}
+  </div>
+  {{/each}}
+  {{/unless}}
+</div>

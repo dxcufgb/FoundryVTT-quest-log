@@ -1,0 +1,32 @@
+<div class="dxql-filters">
+  <nav class="dxql-status-tabs" aria-label="{{localize "DXQL.StatusFilter"}}">
+    {{#each statusTabs}}
+    <button type="button" class="dxql-status-tab status-{{id}} {{#if active}}active{{/if}}" data-action="setStatusFilter"
+            data-status="{{id}}" aria-pressed="{{active}}">
+      {{label}} <span class="dxql-count">{{count}}</span>
+    </button>
+    {{/each}}
+  </nav>
+  <div class="dxql-toolbar">
+    <label class="dxql-groupby">
+      <i class="fa-solid fa-layer-group" inert></i>
+      <select name="groupBy" aria-label="{{localize "DXQL.GroupByLabel"}}">
+        {{selectOptions groupOptions selected=groupBy}}
+      </select>
+    </label>
+    {{#if isGM}}
+    <div class="dxql-gm-tools">
+      <button type="button" class="dxql-icon-btn" data-action="exportQuests" data-tooltip="DXQL.Transfer.ExportHint"
+              aria-label="{{localize "DXQL.Transfer.Export"}}"><i class="fa-solid fa-file-export" inert></i></button>
+      <button type="button" class="dxql-icon-btn" data-action="importQuests" data-tooltip="DXQL.Transfer.ImportHint"
+              aria-label="{{localize "DXQL.Transfer.Import"}}"><i class="fa-solid fa-file-import" inert></i></button>
+    </div>
+    {{/if}}
+    {{#if tagFilter}}
+    <button type="button" class="dxql-tag dxql-tag-filter" style="--hue: {{tagHue}}" data-action="clearTag"
+            data-tooltip="DXQL.ClearTagFilter">
+      <i class="fa-solid fa-tag" inert></i> {{tagFilter}} <i class="fa-solid fa-xmark" inert></i>
+    </button>
+    {{/if}}
+  </div>
+</div>

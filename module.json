@@ -1,0 +1,36 @@
+{
+  "id": "dxcufgbs-quest-log",
+  "title": "Dxcufgb's Quest log",
+  "description": "A shared quest log in the right sidebar for the whole table. Players and the GM add quests with where they were acquired, the quest giver, where they take place and their objectives; add notes, clues, new objectives and images; and tick off objectives and whole quests. Search everything, group quests by location, quest giver or tag, and right-click chat cards, journal entries or selected text to save them as notes or clues. The GM can keep quests hidden from players until they are revealed.",
+  "version": "1.2.0",
+  "authors": [
+    {
+      "name": "Dxcufgb",
+      "url": "https://github.com/Dxcufgb"
+    }
+  ],
+  "compatibility": {
+    "minimum": "13",
+    "verified": "13"
+  },
+  "url": "https://github.com/dxcufgb/FoundryVTT-quest-log",
+  "manifest": "https://github.com/dxcufgb/FoundryVTT-quest-log/releases/latest/download/module.json",
+  "download": "https://github.com/dxcufgb/FoundryVTT-quest-log/releases/latest/download/module.zip",
+  "bugs": "https://github.com/dxcufgb/FoundryVTT-quest-log/issues",
+  "readme": "https://github.com/dxcufgb/FoundryVTT-quest-log#readme",
+  "license": "LICENSE",
+  "socket": true,
+  "esmodules": [
+    "scripts/main.js"
+  ],
+  "styles": [
+    "styles/quest-log.css"
+  ],
+  "languages": [
+    {
+      "lang": "en",
+      "name": "English",
+      "path": "lang/en.json"
+    }
+  ]
+}
