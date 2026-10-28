@@ -77,6 +77,8 @@ The first time a GM opens the world after enabling the module, the quest log is 
 | Image folder | World | *(empty)* | Where uploads go, relative to the data folder. Empty: `worlds/<world>/quest-log`. |
 | Right-click menu for selected text | Client | On | Turns the selected-text menu on or off for you. |
 
+**Delete all quests** (GM only, a button at the top of the module's settings): deletes every quest in the log, hidden ones included. You have to type `DELETE` to confirm, and the dialog has a button to export the log first. It can't be undone; uploaded image files stay in the image folder. It's only in the settings, not in the Quest Log tab, so the log can't be wiped by a stray click.
+
 ## Where the data lives
 
 Quests are stored in the flags of two journal entries that the module creates the first time a GM joins: *Quest Log (module data, shared)*, owned by everyone, and *Quest Log (module data, GM only)* for hidden quests. Both are hidden from the Journal sidebar. Don't delete them: that deletes the quest log. They're ordinary world documents, so they're included in world backups and exports. Uploaded images are ordinary files in the image folder.
@@ -96,6 +98,7 @@ Every change is saved as a small update of just the part that changed, so severa
 | `createQuest(data, {hidden})` | Creates a quest and returns its id. |
 | `updateQuest(id, data)`, `setStatus(id, status)`, `addObjective(id, text)`, `addNote(id, {type, text, images})` | Changes a quest. |
 | `exportQuests()` / `importQuests(file?)` | GM: the export dialog / import from a `File` (asks for one when left out). |
+| `deleteAllQuests()` | GM: the *Delete all quests* confirmation; deletes every quest when confirmed. Returns how many were deleted. |
 | `importAdventureQuests(adventure)` | GM: adds the quests stored in an Adventure (document or UUID) to the log, skipping ones already there. Returns `{added, skipped, hidden}`. |
 | `storeInAdventure(adventure, {includeHidden})` | GM: stores the world's quest log in an Adventure (its compendium must be unlocked), so the adventure brings its quests along. `includeHidden: false` leaves out hidden quests and hidden parts. |
 | `setPartHidden(id, kind, partId, hidden)` / `setFieldHidden(id, field, hidden)` | GM: hides or reveals one stage, objective, note/clue, image or place (`kind`: `stages`, `objectives`, `notes`, `gallery`, `locations`) / one field (`questType`, `chapter`, `giver`, `acquiredAt`, `reward`, `description`, `tags`). |
