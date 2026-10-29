@@ -63,6 +63,10 @@ export class QuestSheet extends HandlebarsApplicationMixin(ApplicationV2) {
       saveObjective: QuestSheet.#onSaveObjective,
       deleteObjective: QuestSheet.#onDeleteObjective,
       moveObjective: QuestSheet.#onMoveObjective,
+      addItem: QuestSheet.#onAddItem,
+      deleteItem: QuestSheet.#onDeleteItem,
+      openItem: QuestSheet.#onOpenItem,
+      toggleNewItemHidden: QuestSheet.#onToggleNewItemHidden,
       addGalleryImage: QuestSheet.#onAddGalleryImage,
       browseGalleryImage: QuestSheet.#onBrowseGalleryImage,
       removeImage: QuestSheet.#onRemoveImage,
@@ -165,6 +169,8 @@ export class QuestSheet extends HandlebarsApplicationMixin(ApplicationV2) {
     this.locationInput = "";
     this.composer = { text: "", type: "note", images: [], uploading: 0, hidden: false };
     this.newObjectiveHidden = false;
+    this.newItem = "";
+    this.newItemHidden = false;
     this.noteFilter = "all";
     this.newObjective = "";
     this.newObjectiveStage = "";
@@ -267,7 +273,7 @@ export class QuestSheet extends HandlebarsApplicationMixin(ApplicationV2) {
 
     const secret = Object.fromEntries(HIDEABLE_FIELDS.map(f => [f, quest.hiddenFields.includes(f)]));
     const hiddenParts = quest.hiddenFields.length
-      + ["stages", "objectives", "notes", "gallery", "locations"].reduce((n, k) => n + quest[k].filter(p => p.hidden).length, 0);
+      + ["stages", "objectives", "notes", "gallery", "locations", "items"].reduce((n, k) => n + quest[k].filter(p => p.hidden).length, 0);
     const total = quest.objectives.length;
     const done = quest.objectives.filter(o => o.done).length;
     const objectives = [];
@@ -354,6 +360,10 @@ export class QuestSheet extends HandlebarsApplicationMixin(ApplicationV2) {
       stageOptions,
       progress: total ? { done, total, pct: Math.round(done / total * 100) } : null,
       newObjective: this.newObjective,
+      items: quest.items.map(i => ({ ...i, canDelete: store.canDelete(i.createdBy) })),
+      itemsHave: quest.items.filter(i => i.have).length,
+      newItem: this.newItem,
+      newItemHidden: this.newItemHidden,
       gallery: quest.gallery.map(g => ({ ...g, canDelete: store.canDelete(g.createdBy) })),
       galleryUploading: this.galleryUploading > 0,
       composer: this.composer,
@@ -427,6 +437,12 @@ export class QuestSheet extends HandlebarsApplicationMixin(ApplicationV2) {
         store.updateObjective(this.questId, oid, { done: event.target.checked });
       });
     }
+    for (const box of root.querySelectorAll("[data-change=toggleItem]")) {
+      box.addEventListener("change", event => {
+        const iid = event.target.closest("[data-item-id]").dataset.itemId;
+        store.updateItem(this.questId, iid, { have: event.target.checked });
+      });
+    }
     for (const text of root.querySelectorAll(".dxql-objective-text")) {
       text.addEventListener("dblclick", event => {
         const oid = event.currentTarget.closest("[data-objective-id]").dataset.objectiveId;
@@ -494,6 +510,9 @@ export class QuestSheet extends HandlebarsApplicationMixin(ApplicationV2) {
     if (kind === "newObjective" && enter) {
       event.preventDefault();
       QuestSheet.#onAddObjective.call(this);
+    } else if (kind === "newItem" && enter) {
+      event.preventDefault();
+      QuestSheet.#onAddItem.call(this);
     } else if (kind === "objectiveEdit") {
       if (enter) { event.preventDefault(); this.#saveObjective(); }
       if (event.key === "Escape") { event.preventDefault(); event.stopPropagation(); this.editObjective = null; this.render(); }
@@ -574,6 +593,17 @@ export class QuestSheet extends HandlebarsApplicationMixin(ApplicationV2) {
         Object.assign(this.draft, giver);
         this.render();
       } else await store.updateQuest(this.questId, giver);
+      return;
+    }
+    if (kind === "items") {
+      if (!data?.uuid) return;
+      const doc = await fromUuid(data.uuid).catch(() => null);
+      const name = doc?.name ?? data.name;
+      if (!name) return;
+      const isItem = (doc?.documentName ?? data.type) === "Item";
+      await store.addItem(this.questId, {
+        name, uuid: data.uuid, img: isItem ? doc?.img ?? "" : "", hidden: this.newItemHidden
+      });
       return;
     }
     if (kind === "gallery") {
@@ -660,7 +690,7 @@ export class QuestSheet extends HandlebarsApplicationMixin(ApplicationV2) {
   static async #onTogglePart(event, target) {
     event.stopPropagation();
     const { kind, partId } = target.dataset;
-    const list = { stages: "stages", objectives: "objectives", notes: "notes", gallery: "gallery", locations: "locations" }[kind];
+    const list = { stages: "stages", objectives: "objectives", notes: "notes", gallery: "gallery", locations: "locations", items: "items" }[kind];
     const part = list && this.quest?.[list].find(p => p.id === partId);
     if (part) await store.setPartHidden(this.questId, kind, partId, !part.hidden);
   }
@@ -885,6 +915,35 @@ export class QuestSheet extends HandlebarsApplicationMixin(ApplicationV2) {
 
   static async #onMoveObjective(event, target) {
     await store.moveObjective(this.questId, target.closest("[data-objective-id]").dataset.objectiveId, Number(target.dataset.dir));
+  }
+
+  /* -------------------------------------------- */
+  /*  Actions: items needed                       */
+  /* -------------------------------------------- */
+
+  static async #onAddItem() {
+    const name = this.newItem.trim();
+    if (!name) return;
+    this.newItem = "";
+    this._focusNext = "[data-bind=newItem]";
+    await store.addItem(this.questId, { name, hidden: this.newItemHidden });
+  }
+
+  static async #onDeleteItem(event, target) {
+    await store.deleteItem(this.questId, target.closest("[data-item-id]").dataset.itemId);
+  }
+
+  static async #onOpenItem(event, target) {
+    const item = this.quest?.items.find(i => i.id === target.closest("[data-item-id]")?.dataset.itemId);
+    const doc = await fromUuid(item?.uuid ?? "").catch(() => null);
+    if (doc?.testUserPermission(game.user, "LIMITED")) doc.sheet.render({ force: true });
+    else ui.notifications.info(t("NoAccess"));
+  }
+
+  static #onToggleNewItemHidden() {
+    this.newItemHidden = !this.newItemHidden;
+    this._focusNext = "[data-bind=newItem]";
+    this.render();
   }
 
   /* -------------------------------------------- */

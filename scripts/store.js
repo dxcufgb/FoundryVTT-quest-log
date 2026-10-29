@@ -117,6 +117,11 @@ export function normalizeQuest(id, raw, hidden, { forGM = game.user.isGM } = {})
   const gallery = sortedEntries(raw.gallery).filter(g => g.src).filter(visible).map(g => ({
     id: g.id, src: g.src, hidden: !!g.hidden, createdBy: g.createdBy ?? null, createdAt: g.createdAt ?? 0
   }));
+  // Items the quest needs: a name, optionally linked to an Item document (uuid, img), ticked when the party has it.
+  const items = sortedEntries(raw.items).filter(i => cleanLine(i.name, 120)).filter(visible).map(i => ({
+    id: i.id, name: cleanLine(i.name, 120), uuid: i.uuid ?? "", img: i.img ?? "", have: !!i.have, hidden: !!i.hidden,
+    sort: i.sort ?? 0, createdBy: i.createdBy ?? null, createdAt: i.createdAt ?? 0, authorName: i.authorName ?? null
+  }));
   const field = (key, value) => (isFieldHidden(key) ? "" : String(value ?? ""));
   const locations = locationsOf(raw).filter(visible);
   return {
@@ -142,6 +147,7 @@ export function normalizeQuest(id, raw, hidden, { forGM = game.user.isGM } = {})
     objectives,
     notes,
     gallery,
+    items,
     createdBy: raw.createdBy ?? null,
     authorName: raw.authorName ?? null,
     createdAt: raw.createdAt ?? 0,
@@ -286,7 +292,7 @@ export async function createQuest(data = {}, { hidden = false } = {}) {
   const now = Date.now();
   const quest = {
     title: "", description: "", giver: "", giverImg: "", giverUuid: "", acquiredAt: "", location: "", reward: "",
-    chapter: "", questType: "", tags: [], locations: {}, stages: {}, objectives: {}, notes: {}, gallery: {},
+    chapter: "", questType: "", tags: [], locations: {}, stages: {}, objectives: {}, notes: {}, gallery: {}, items: {},
     ...questFields(data),
     status: "active",
     createdBy: game.user.id,
@@ -480,6 +486,40 @@ export async function deleteStage(id, sid) {
     if (o?.stage === sid) objectives[oid] = stage.hidden ? { stage: null, hidden: true } : { stage: null };
   }
   return patch(id, { stages: { [`-=${sid}`]: null }, objectives });
+}
+
+/* Items the quest needs */
+
+/** Adds an item the quest needs. uuid / img: a linked Item document (dropped on the list). */
+export async function addItem(id, { name = "", uuid = "", img = "", hidden = false } = {}) {
+  const clean = cleanLine(name, 120);
+  if (!clean) return null;
+  const iid = randomId();
+  const now = Date.now();
+  await patch(id, {
+    items: {
+      [iid]: {
+        name: clean, uuid: String(uuid ?? "").slice(0, 200), img: String(img ?? "").slice(0, 500), have: false,
+        hidden: !!(hidden && game.user.isGM), sort: now, createdBy: game.user.id, createdAt: now
+      }
+    }
+  }, { type: "item-added" });
+  return iid;
+}
+
+export async function updateItem(id, iid, data) {
+  const change = {};
+  if ("name" in data) {
+    change.name = cleanLine(data.name, 120);
+    if (!change.name) return;
+  }
+  if ("have" in data) change.have = !!data.have;
+  if (!Object.keys(change).length) return;
+  return patch(id, { items: { [iid]: change } });
+}
+
+export async function deleteItem(id, iid) {
+  return patch(id, { items: { [`-=${iid}`]: null } });
 }
 
 /* Notes and clues */

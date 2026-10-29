@@ -121,7 +121,8 @@ const NOTIFY = {
   "revealed-stages": ["NotifyNewStage", "info"],
   "revealed-gallery": ["NotifyNewImage", "info"],
   "revealed-field": ["NotifyNewInfo", "info"],
-  "revealed-locations": ["NotifyNewInfo", "info"]
+  "revealed-locations": ["NotifyNewInfo", "info"],
+  "revealed-items": ["NotifyNewItem", "info"]
 };
 
 const NOTIFY_REWARD = {
@@ -267,6 +268,7 @@ Hooks.once("ready", async () => {
       updateQuest: store.updateQuest,
       setStatus: store.setStatus,
       addObjective: store.addObjective,
+      addItem: store.addItem,
       addNote: store.addNote,
       exportQuests,
       importQuests,

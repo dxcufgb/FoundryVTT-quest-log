@@ -7,7 +7,7 @@ export const HIDEABLE_FIELDS = ["giver", "acquiredAt", "location", "reward", "de
 /** Quest categories: a quest is a main quest, a side quest or not set (""). */
 export const QUEST_TYPES = ["main", "side"];
 /** Keyed parts of a quest that can each be hidden from players. */
-export const PART_KINDS = ["objectives", "notes", "gallery", "stages", "locations"];
+export const PART_KINDS = ["objectives", "notes", "gallery", "stages", "locations", "items"];
 
 export const STATUS_ICONS = {
   active: "fa-regular fa-circle",

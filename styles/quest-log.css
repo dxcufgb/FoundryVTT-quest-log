@@ -569,6 +569,10 @@
 .dxql .dxql-objective-text { flex: 1; min-width: 0; padding-top: 2px; cursor: text; }
 .dxql .dxql-objective.done .dxql-objective-text { color: var(--dxql-muted); text-decoration: line-through; text-decoration-color: var(--dxql-success); }
 .dxql .dxql-objective-edit { flex: 1; height: 26px; }
+/* Items needed: objective-style rows with an optional item image. */
+.dxql .dxql-item-list { margin-bottom: 6px; }
+.dxql .dxql-item .dxql-objective-text { cursor: default; }
+.dxql .dxql-item-img { width: 22px; height: 22px; flex: none; object-fit: cover; border: none; border-radius: 3px; }
 .dxql .dxql-row-actions { display: flex; gap: 0; opacity: 0; transition: opacity 0.12s; }
 .dxql .dxql-objective:hover .dxql-row-actions,
 .dxql .dxql-objective:focus-within .dxql-row-actions,

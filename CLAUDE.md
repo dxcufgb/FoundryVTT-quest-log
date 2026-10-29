@@ -23,6 +23,8 @@ System-agnostic. No build step and no npm dependencies.
   writes the edit form's list (ids kept, removed ones `-=id`, legacy migrated, `location` cleared); a player's list lacks
   hidden places, so it never removes or changes them. `chapter` (text) and `questType` ("main" | "side" | "") are
   single-value categories with their own group-by modes.
+  Items needed are keyed `items.<id>` ({name, uuid, img, have, hidden, sort, createdBy}; part kind `items`), added and
+  ticked in the quest window (`addItem` / `updateItem` / `deleteItem`), like objectives.
 - `scripts/apps/quest-log-tab.js` – `QuestLogTab` (HandlebarsApplicationMixin(AbstractSidebarTab)): parts `nav`
   (Quests / Quest Rewards / Notes switch, client setting `view`), `header` (search box, never re-rendered by data changes so
   typing isn't interrupted; re-rendered when the view switches), `filters`, `list`. In the rewards view

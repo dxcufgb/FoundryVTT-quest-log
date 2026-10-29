@@ -360,6 +360,49 @@
     </div>
   </section>
 
+  {{!-- Items needed --}}
+  <section class="dxql-section dxql-items" data-drop="items">
+    <h3 class="dxql-section-title">
+      <i class="fa-solid fa-suitcase" inert></i> {{localize "DXQL.Field.Items"}}
+      {{#if items.length}}<span class="dxql-count">{{itemsHave}}/{{items.length}}</span>{{/if}}
+    </h3>
+    {{#if items.length}}
+    <ul class="dxql-objective-list dxql-item-list">
+      {{#each items}}
+      <li class="dxql-objective dxql-item {{#if have}}done{{/if}} {{#if hidden}}is-secret{{/if}}" data-item-id="{{id}}">
+        <label class="dxql-check" data-tooltip="{{#if have}}DXQL.MarkItemMissing{{else}}DXQL.MarkItemHave{{/if}}">
+          <input type="checkbox" data-change="toggleItem" {{checked have}}>
+          <span class="dxql-checkmark"><i class="fa-solid fa-check" inert></i></span>
+        </label>
+        {{#if img}}<img class="dxql-item-img" src="{{img}}" alt="">{{/if}}
+        <div class="dxql-objective-text">
+          {{#if uuid}}<a data-action="openItem" data-tooltip="DXQL.OpenItem">{{name}}</a>{{else}}<span>{{name}}</span>{{/if}}
+        </div>
+        {{#if @root.isGM}}<button type="button" class="dxql-icon-btn dxql-eye {{#if hidden}}is-on{{/if}}" data-action="togglePart" data-kind="items" data-part-id="{{id}}" data-tooltip="{{#if hidden}}DXQL.RevealToPlayers{{else}}DXQL.HideFromPlayers{{/if}}"><i class="fa-solid {{#if hidden}}fa-eye-slash{{else}}fa-eye{{/if}}" inert></i></button>{{/if}}
+        {{#if canDelete}}
+        <div class="dxql-row-actions">
+          <button type="button" class="dxql-icon-btn dxql-danger" data-action="deleteItem" data-tooltip="DXQL.Delete">
+            <i class="fa-solid fa-trash" inert></i></button>
+        </div>
+        {{/if}}
+      </li>
+      {{/each}}
+    </ul>
+    {{/if}}
+    <div class="dxql-add-row {{#if newItemHidden}}is-secret{{/if}}">
+      <i class="fa-solid fa-plus" inert></i>
+      <input type="text" data-bind="newItem" data-keys="newItem" value="{{newItem}}"
+             placeholder="{{localize "DXQL.Placeholder.NewItem"}}">
+      {{#if isGM}}
+      <button type="button" class="dxql-icon-btn dxql-eye {{#if newItemHidden}}is-on{{/if}}" data-action="toggleNewItemHidden"
+              data-tooltip="{{#if newItemHidden}}DXQL.AddsHidden{{else}}DXQL.AddsVisible{{/if}}">
+        <i class="fa-solid {{#if newItemHidden}}fa-eye-slash{{else}}fa-eye{{/if}}" inert></i></button>
+      {{/if}}
+      <button type="button" data-action="addItem">{{localize "DXQL.Add"}}</button>
+    </div>
+    <p class="dxql-hint">{{localize "DXQL.Hint.Items"}}</p>
+  </section>
+
   {{!-- Images --}}
   <section class="dxql-section dxql-gallery-section" data-drop="gallery">
     <h3 class="dxql-section-title">
