@@ -127,8 +127,8 @@ Every change is saved as a small update of just the part that changed, so severa
 | `updateQuest(id, data)`, `setStatus(id, status)`, `addObjective(id, text)`, `addItem(id, {name, uuid, img})`, `addNpc(id, {name, faceId, uuid, img})`, `addNote(id, {type, text, images})` | Changes a quest. |
 | `exportQuests()` / `importQuests(file?)` | GM: the export dialog / import from a `File` (asks for one when left out). |
 | `deleteAllQuests()` | GM: the *Delete all quests* confirmation; deletes every quest when confirmed. Returns how many were deleted. |
-| `importAdventureQuests(adventure)` | GM: adds the quests stored in an Adventure (document or UUID) to the log, skipping ones already there. Returns `{added, skipped, hidden}`. |
-| `storeInAdventure(adventure, {includeHidden})` | GM: stores the world's quest log in an Adventure (its compendium must be unlocked), so the adventure brings its quests along. `includeHidden: false` leaves out hidden quests and hidden parts. |
+| `importAdventureQuests(adventure)` | GM: adds the quests, rewards and notes stored in an Adventure (document or UUID) to the log, skipping ones already there. Returns the quest counts `{added, skipped, hidden}`. |
+| `storeInAdventure(adventure, {includeHidden})` | GM: stores the world's quest log (quests, rewards and notes) in an Adventure (its compendium must be unlocked), so the adventure brings them along. `includeHidden: false` leaves out hidden quests, rewards, notes and hidden parts. |
 | `openRewards()` / `openReward(id)` / `newReward(prefill)` | Opens the Quest Rewards view / a reward's window / the new-reward form (`prefill`: `name`, `description`, `img`, `maxUses` (0 = no limit), `usesLeft`, `questId`, `links` (`[{type, name, uuid}]`, `type`: `place`, `npc`, `faction`, `other`), `hidden`). |
 | `addAsReward({text, images, source, title})` | Opens the new-reward form filled in from a piece of text. |
 | `rewards()` / `getReward(id)` | Quest rewards the current user can see (`status` `active` or `claimed`, `maxUses`, `usesLeft`, `unlimited`, `log` of uses, `links`, `questId`). |
@@ -144,7 +144,8 @@ Every change is saved as a small update of just the part that changed, so severa
 
 ### Making an adventure that brings quests
 
-Put the quests in the Adventure document's flags, in the same format as an export file:
+An Adventure document can carry a ready-made quest log: quests, quest rewards and notes (handouts). It is stored in the
+Adventure's flags, in the same format as an export file:
 
 ```json
 "flags": {
@@ -153,22 +154,74 @@ Put the quests in the Adventure document's flags, in the same format as an expor
       "module": "dxcufgbs-quest-log",
       "format": 1,
       "quests": [
-        { "id": "myAdvQuest000001", "hidden": true, "title": "The Missing Blacksmith", "giver": "Mayor Holt",
-          "acquiredAt": "The Green Dragon", "location": "The old mine", "reward": "200 gp", "description": "…",
-          "tags": ["Chapter 1"], "hiddenFields": ["reward"],
-          "objectives": { "o1": { "text": "Find the blacksmith", "sort": 1 },
-                          "o2": { "text": "Confront the mayor", "sort": 2, "hidden": true } } }
+        { "id": "myAdvQuest000001", "hidden": true, "title": "The Missing Blacksmith",
+          "questType": "main", "chapter": "Chapter 1",
+          "giver": "Mayor Holt", "acquiredAt": "The Green Dragon", "reward": "200 gp", "description": "…",
+          "tags": ["Blacksmith"], "hiddenFields": ["reward"],
+          "locations": ["The old mine", { "name": "The smugglers' cave", "hidden": true }],
+          "stages": { "s1": { "title": "The mine", "text": "…", "sort": 1 },
+                      "s2": { "title": "The truth", "text": "…", "sort": 2, "hidden": true } },
+          "objectives": { "o1": { "text": "Find the blacksmith", "stage": "s1", "sort": 1 },
+                          "o2": { "text": "Confront the mayor", "stage": "s2", "sort": 2 } },
+          "notes": { "c1": { "type": "clue", "text": "Soot on the mayor's boots.", "hidden": true } },
+          "gallery": { "g1": { "src": "modules/my-adventure/images/mine.webp" } },
+          "items": { "i1": { "name": "Silver key", "have": false, "sort": 1 } },
+          "npcs": { "n1": { "name": "Bertha Stone", "faceId": "<Familiar Faces & Places id>", "hidden": true } } }
+      ],
+      "rewards": [
+        { "id": "myAdvReward00001", "name": "Favour of the Harbour Guild", "maxUses": 1,
+          "questId": "myAdvQuest000001", "links": [{ "type": "faction", "name": "Harbour Guild" }] }
+      ],
+      "partyNotes": [
+        { "id": "myAdvNote0000001", "title": "The smuggler's map", "text": "…", "tags": ["Chapter 1"],
+          "questId": "myAdvQuest000001", "images": ["modules/my-adventure/images/smugglers-map.webp"] }
       ]
     }
   }
 }
 ```
 
-The easiest way is to build the quests in a world (hidden, with the GM's quest window) and run `storeInAdventure(uuid)` with the adventure's compendium unlocked, or to paste an export file's contents into `questLog` when building the adventure with the Foundry CLI. Give quests fixed ids (letters and digits, up to 32): the ids are how a re-import recognises quests that are already in the log, and what `@Quest[id]` links point to. A quest without `"hidden"` is imported hidden. `"questType": "main"` or `"side"` and `"chapter": "Chapter 1"` set the categories; places go in `"locations"`, as a list of names or `{"name": "…", "hidden": true}` (an old single `"location"` text still works). Items needed go in `"items": {"i1": {"name": "Silver key", "have": false, "sort": 1}}` (optionally `"uuid"` and `"img"` of a linked item), related NPCs in `"npcs": {"n1": {"name": "Bertha Stone", "faceId": "<Familiar Faces & Places id>", "hidden": true}}`. Stages (`"stages": {"s1": {"title": "…", "text": "…", "hidden": true, "sort": 1}}`, with `"stage": "s1"` on their objectives), objectives, notes and images with `"hidden": true` and the fields in `"hiddenFields"` stay hidden after the quest itself is revealed, until the GM unhides them.
+**Putting it on the adventure.** The easiest way is to build the quests, rewards and notes in a world (hidden, with the
+GM's quest window) and run `game.modules.get("dxcufgbs-quest-log").api.storeInAdventure(uuid)` with the adventure's
+compendium unlocked. It stores the whole log, hidden entries included (they stay hidden); `{includeHidden: false}` leaves
+out hidden quests, rewards, notes and hidden parts. Run it again after changing the log: it replaces what the adventure
+carried. Or, when building the adventure with the Foundry CLI, paste an export file's contents into `questLog`. Images
+are file paths, so keep them inside the adventure module (`modules/<your module>/…`).
 
-An adventure can bring quest rewards too, in `"rewards"` next to `"quests"`: `{ "id": "myAdvReward00001", "name": "Favour of the Harbour Guild", "maxUses": 1, "questId": "myAdvQuest000001", "links": [{"type": "faction", "name": "Harbour Guild"}] }`. They are imported hidden unless `"hidden": false`, and rewards already in the log are left as they are (so the party's uses aren't reset). `@Reward[<reward id>]{label}` links a reward in a journal page.
+**What happens on import.** When a GM imports the adventure (and *Import quests from adventures* is on), its quests,
+rewards and notes are added to the log:
+- Anything without `"hidden"` is imported **hidden**; set `"hidden": false` for one players should see right away. A
+  reward or note whose `questId` is a hidden quest is hidden with it.
+- Quests, rewards and notes already in the log (same id) are left as they are, so importing the adventure again never
+  resets the party's progress or a reward's uses. Something the GM deleted comes back, though.
+- If the adventure also brings the module's two data journals (it was made from a world that used the quest log), their
+  contents are merged into this world's log and the extra journals are removed.
 
-Notes go in `"partyNotes"` the same way: `{ "id": "myAdvNote0000001", "title": "The smuggler's map", "text": "…", "tags": ["Chapter 1"], "questId": "myAdvQuest000001", "images": ["worlds/my-world/maps/smugglers.webp"] }`. They are imported hidden unless `"hidden": false` (a ready-made handout for the GM to reveal), and notes already in the log are left as they are. `@PartyNote[<note id>]{label}` links a note in a journal page; for the GM a hidden note's link has a **Reveal** button.
+With the setting off, or to add the quests later, run `importAdventureQuests(uuid)` from the API.
+
+**Fields.**
+- Give every quest, reward and note a fixed `id` (letters and digits, up to 32): the ids are how a re-import recognises
+  entries that are already in the log, and what links point to. The keys of stages, objectives, notes, images, items
+  and NPCs follow the same rule and are what part links point to (lists instead of keyed objects work too, with
+  generated keys).
+- Quests: `"questType"` (`"main"` or `"side"`) and `"chapter"` set the categories; `"status"` is `"active"` (default),
+  `"completed"` or `"failed"`. Places go in `"locations"`, as a list of names or `{"name": "…", "hidden": true}` (an old
+  single `"location"` text still works). Stages are `{title, text, hidden, sort}`, with `"stage": "s1"` on their
+  objectives (an objective of a hidden stage is hidden with it). Notes are `{type: "note" | "clue", text, images,
+  hidden}`, images `{src, hidden}`. Items needed are `{name, have, hidden, sort}` (optionally `"uuid"` and `"img"` of a
+  linked item), related NPCs `{name, faceId, hidden, sort}` (`faceId` of a Familiar Faces & Places NPC, optionally
+  `"uuid"` and `"img"`). `"hiddenFields"` lists fields hidden on their own: `questType`, `chapter`, `giver`,
+  `acquiredAt`, `location` (every place), `reward`, `description`, `tags`. Hidden parts and fields stay hidden after the
+  quest itself is revealed, until the GM unhides them.
+- Rewards: `name`, `description`, `img`, `maxUses` (0 = no limit), `questId`, and `links` (`{type: "place" | "npc" |
+  "faction" | "other", name, uuid}`).
+- Notes: `title`, `text`, `tags`, `questId`, `links` (as rewards), `images` (a list of paths) and `pinned`.
+
+**Linking from the adventure's journals.** `@Quest[<quest id>]{label}` links a quest, and
+`@Quest[<quest id>/objectives/<objective id>]{label}` one part of it (`/stages/`, `/notes/`, `/locations/`, `/items/`,
+`/npcs/` the same way). `@Reward[<reward id>]{label}` and `@PartyNote[<note id>]{label}` link a reward and a note. For the
+GM a link to something hidden is dashed and has a **Reveal** (or **Unhide**) button, so the adventure's text can say
+*"reveal this quest now"* right where it happens.
 
 ## License
 
