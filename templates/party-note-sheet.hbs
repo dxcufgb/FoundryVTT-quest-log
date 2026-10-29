@@ -1,0 +1,223 @@
+<div class="dxql-sheet-scroll">
+{{#if missing}}
+  <div class="dxql-empty">
+    <i class="fa-solid fa-ghost" inert></i>
+    <p>{{localize "DXQL.PartyNote.Gone"}}</p>
+  </div>
+{{else if editing}}
+  {{!-- ============================ EDIT / CREATE ============================ --}}
+  <form class="dxql-edit" autocomplete="off">
+    <h2 class="dxql-edit-heading">
+      <i class="fa-solid {{#if isNew}}fa-note-sticky{{else}}fa-pen{{/if}}" inert></i>
+      {{#if isNew}}{{localize "DXQL.PartyNote.New"}}{{else}}{{localize "DXQL.PartyNote.Edit"}}{{/if}}
+    </h2>
+
+    <div class="dxql-field wide">
+      <label for="{{appId}}-title">{{localize "DXQL.PartyNote.Field.Title"}}</label>
+      <input id="{{appId}}-title" type="text" data-bind="draft.title" value="{{draft.title}}" required
+             placeholder="{{localize "DXQL.PartyNote.Placeholder.Title"}}" maxlength="120">
+    </div>
+
+    <div class="dxql-field wide">
+      <label for="{{appId}}-quest">{{localize "DXQL.PartyNote.Field.Quest"}}</label>
+      <select id="{{appId}}-quest" data-bind="draft.questId">
+        {{#each questOptions}}<option value="{{id}}" {{#if selected}}selected{{/if}}>{{label}}</option>{{/each}}
+      </select>
+      <p class="dxql-hint">{{localize "DXQL.PartyNote.Hint.Quest"}}</p>
+    </div>
+
+    <div class="dxql-field wide">
+      <label for="{{appId}}-text">{{localize "DXQL.PartyNote.Field.Text"}}</label>
+      <textarea id="{{appId}}-text" data-bind="draft.text" data-drop="text" rows="9"
+                placeholder="{{localize "DXQL.PartyNote.Placeholder.Text"}}">{{draft.text}}</textarea>
+      <p class="dxql-hint">{{localize "DXQL.PartyNote.Hint.Text"}}</p>
+    </div>
+
+    <div class="dxql-field wide" data-drop="images">
+      <label>{{localize "DXQL.Images"}}</label>
+      <div class="dxql-gallery">
+        {{#each draft.images}}
+        <figure class="dxql-thumb small">
+          <img src="{{src}}" alt="" data-action="viewImage" data-src="{{src}}">
+          <button type="button" class="dxql-thumb-remove" data-action="removeDraftImage" data-index="{{@index}}"
+                  aria-label="{{localize "DXQL.RemoveImage"}}"><i class="fa-solid fa-xmark" inert></i></button>
+        </figure>
+        {{/each}}
+        <button type="button" class="dxql-thumb small dxql-thumb-add {{#if uploading}}busy{{/if}}" data-action="attachImage"
+                data-tooltip="DXQL.AttachImageHint" aria-label="{{localize "DXQL.AttachImage"}}">
+          {{#if uploading}}<i class="fa-solid fa-spinner fa-spin" inert></i>{{else}}<i class="fa-solid fa-image" inert></i>{{/if}}
+        </button>
+        {{#if canBrowse}}
+        <button type="button" class="dxql-thumb small dxql-thumb-add" data-action="browseImage" data-tooltip="DXQL.BrowseHint"
+                aria-label="{{localize "DXQL.Browse"}}"><i class="fa-solid fa-folder-open" inert></i></button>
+        {{/if}}
+      </div>
+    </div>
+
+    <div class="dxql-field wide">
+      <label for="{{appId}}-tag">{{localize "DXQL.Field.Tags"}}</label>
+      <div class="dxql-tag-input">
+        {{#each draft.tagList}}
+        <span class="dxql-tag" style="--hue: {{hue}}">{{name}}
+          <button type="button" data-action="removeTag" data-tag="{{name}}" aria-label="{{localize "DXQL.RemoveTag"}}">
+            <i class="fa-solid fa-xmark" inert></i></button>
+        </span>
+        {{/each}}
+        <input id="{{appId}}-tag" type="text" data-bind="tagInput" value="{{tagInput}}" list="{{appId}}-tags"
+               placeholder="{{localize "DXQL.Placeholder.Tag"}}">
+      </div>
+    </div>
+
+    <div class="dxql-field wide dxql-places-field" data-drop="links">
+      <label for="{{appId}}-link">{{localize "DXQL.PartyNote.Field.Links"}}</label>
+      <div class="dxql-input-row">
+        <select class="dxql-link-type" data-bind="linkType" aria-label="{{localize "DXQL.Reward.LinkTypeLabel"}}">
+          {{#each linkTypes}}<option value="{{id}}" {{#if selected}}selected{{/if}}>{{label}}</option>{{/each}}
+        </select>
+        <input id="{{appId}}-link" type="text" data-bind="linkInput" value="{{linkInput}}" list="{{appId}}-links"
+               placeholder="{{localize "DXQL.Reward.Placeholder.Link"}}">
+        <button type="button" class="dxql-icon-btn" data-action="addLink" data-tooltip="DXQL.Add" aria-label="{{localize "DXQL.Add"}}">
+          <i class="fa-solid fa-plus" inert></i></button>
+      </div>
+      {{#if draft.linkList.length}}
+      <ul class="dxql-place-tokens">
+        {{#each draft.linkList}}
+        <li class="dxql-place dxql-link link-{{type}}">
+          <button type="button" class="dxql-place-btn" data-action="cycleLinkType" data-index="{{@index}}"
+                  data-tooltip="{{localize "DXQL.Reward.ChangeLinkType" type=label}}"><i class="{{icon}}" inert></i></button>
+          <span>{{name}}</span>{{#if uuid}}<i class="fa-solid fa-link dxql-linked" data-tooltip="DXQL.PartyNote.Linked" inert></i>{{/if}}
+          <button type="button" class="dxql-place-btn" data-action="removeLink" data-index="{{@index}}"
+                  data-tooltip="DXQL.Reward.RemoveLink" aria-label="{{localize "DXQL.Reward.RemoveLink"}}"><i class="fa-solid fa-xmark" inert></i></button>
+        </li>
+        {{/each}}
+      </ul>
+      {{/if}}
+      <p class="dxql-hint">{{localize "DXQL.PartyNote.Hint.Links"}}</p>
+    </div>
+
+    {{#if isNew}}
+    <label class="dxql-checkbox">
+      <input type="checkbox" data-bind="draft.pinned" {{checked draft.pinned}}>
+      <i class="fa-solid fa-thumbtack" inert></i> {{localize "DXQL.PartyNote.PinNew"}}
+    </label>
+    {{/if}}
+    {{#if isGM}}
+    <label class="dxql-checkbox">
+      <input type="checkbox" data-bind="draft.hidden" {{checked draft.hidden}}>
+      <i class="fa-solid fa-eye-slash" inert></i> {{localize "DXQL.HiddenFromPlayers"}}
+      <span class="dxql-hint">{{localize "DXQL.PartyNote.Hint.Hidden"}}</span>
+    </label>
+    {{/if}}
+
+    <footer class="dxql-edit-footer">
+      <button type="button" data-action="cancelEdit"><i class="fa-solid fa-xmark" inert></i> {{localize "Cancel"}}</button>
+      <button type="submit" class="dxql-primary" {{#if uploading}}disabled{{/if}}>
+        <i class="fa-solid fa-check" inert></i> {{#if isNew}}{{localize "DXQL.PartyNote.Create"}}{{else}}{{localize "DXQL.SaveChanges"}}{{/if}}
+      </button>
+    </footer>
+
+    <datalist id="{{appId}}-tags">{{#each tagSuggestions}}<option value="{{this}}"></option>{{/each}}</datalist>
+    <datalist id="{{appId}}-links">{{#each linkSuggestions}}<option value="{{this}}"></option>{{/each}}</datalist>
+  </form>
+{{else}}
+  {{!-- ============================ VIEW ============================ --}}
+  <header class="dxql-hero dxql-party-note-hero">
+    <div class="dxql-hero-bar">
+      {{#if note.pinned}}<span class="dxql-status-badge dxql-pinned-badge"><i class="fa-solid fa-thumbtack" inert></i> {{localize "DXQL.PartyNote.Pinned"}}</span>{{/if}}
+      {{#if note.hidden}}<span class="dxql-badge dxql-badge-hidden"><i class="fa-solid fa-eye-slash" inert></i> {{localize "DXQL.HiddenFromPlayers"}}</span>{{/if}}
+      <div class="dxql-hero-actions">
+        <button type="button" class="dxql-icon-btn {{#if note.pinned}}is-on{{/if}}" data-action="togglePinned"
+                data-tooltip="{{#if note.pinned}}DXQL.PartyNote.Unpin{{else}}DXQL.PartyNote.Pin{{/if}}"
+                aria-label="{{#if note.pinned}}{{localize "DXQL.PartyNote.Unpin"}}{{else}}{{localize "DXQL.PartyNote.Pin"}}{{/if}}">
+          <i class="fa-solid {{#if note.pinned}}fa-thumbtack-slash{{else}}fa-thumbtack{{/if}}" inert></i></button>
+        {{#unless note.hidden}}
+        <button type="button" class="dxql-icon-btn" data-action="share" data-tooltip="DXQL.PartyNote.ShareHint"
+                aria-label="{{localize "DXQL.PartyNote.Share"}}"><i class="fa-solid fa-comment" inert></i></button>
+        {{/unless}}
+        <button type="button" class="dxql-icon-btn" data-action="edit" data-tooltip="DXQL.PartyNote.Edit" aria-label="{{localize "DXQL.PartyNote.Edit"}}">
+          <i class="fa-solid fa-pen" inert></i></button>
+        {{#if isGM}}
+        <button type="button" class="dxql-icon-btn" data-action="toggleHidden"
+                data-tooltip="{{#if note.hidden}}DXQL.RevealToPlayers{{else}}DXQL.HideFromPlayers{{/if}}">
+          <i class="fa-solid {{#if note.hidden}}fa-eye{{else}}fa-eye-slash{{/if}}" inert></i></button>
+        {{/if}}
+        {{#if canDeleteNote}}
+        <button type="button" class="dxql-icon-btn dxql-danger" data-action="deleteNote" data-tooltip="DXQL.PartyNote.Delete"
+                aria-label="{{localize "DXQL.PartyNote.Delete"}}"><i class="fa-solid fa-trash" inert></i></button>
+        {{/if}}
+      </div>
+    </div>
+
+    <h1 class="dxql-title">{{note.title}}</h1>
+
+    {{#if (or quest (or linkGroups.length note.tagList.length))}}
+    <dl class="dxql-facts">
+      {{#if quest}}
+      <div class="dxql-fact dxql-places-fact">
+        <dt><i class="fa-solid fa-scroll" inert></i> <span>{{localize "DXQL.PartyNote.Field.Quest"}}</span></dt>
+        <dd><a data-action="openQuest" data-quest-id="{{quest.id}}" class="status-{{quest.status}}">{{quest.title}}</a>{{#if quest.hidden}} <i class="fa-solid fa-eye-slash dxql-hidden-icon" data-tooltip="DXQL.HiddenFromPlayers"></i>{{/if}}</dd>
+      </div>
+      {{/if}}
+      {{#each linkGroups}}
+      <div class="dxql-fact dxql-places-fact">
+        <dt><i class="{{icon}}" inert></i> <span>{{label}}</span></dt>
+        <dd>
+          <ul class="dxql-place-list">
+            {{#each links}}
+            <li class="dxql-place">{{#if uuid}}<a data-action="openLink" data-uuid="{{uuid}}">{{name}}</a>{{else}}<span>{{name}}</span>{{/if}}</li>
+            {{/each}}
+          </ul>
+        </dd>
+      </div>
+      {{/each}}
+      {{#if note.tagList.length}}
+      <div class="dxql-fact">
+        <dt><i class="fa-solid fa-tags" inert></i> <span>{{localize "DXQL.Field.Tags"}}</span></dt>
+        <dd class="dxql-tags">{{#each note.tagList}}<span class="dxql-tag" style="--hue: {{hue}}">{{name}}</span>{{/each}}</dd>
+      </div>
+      {{/if}}
+    </dl>
+    {{/if}}
+  </header>
+
+  <section class="dxql-section dxql-description dxql-party-note-text">
+    {{#if textHTML}}
+    <div class="dxql-rich">{{{textHTML}}}</div>
+    {{else}}
+    <p class="dxql-hint">{{localize "DXQL.PartyNote.NoText"}}</p>
+    {{/if}}
+  </section>
+
+  <section class="dxql-section dxql-gallery-section" data-drop="gallery">
+    <h3 class="dxql-section-title">
+      <i class="fa-solid fa-images" inert></i> {{localize "DXQL.Images"}}
+      {{#if gallery.length}}<span class="dxql-count">{{gallery.length}}</span>{{/if}}
+    </h3>
+    <div class="dxql-gallery">
+      {{#each gallery}}
+      <figure class="dxql-thumb" data-image-id="{{id}}">
+        <img src="{{src}}" alt="" data-action="viewImage" data-src="{{src}}" loading="lazy">
+        {{#if canDelete}}
+        <button type="button" class="dxql-thumb-remove" data-action="removeImage" data-tooltip="DXQL.RemoveImage">
+          <i class="fa-solid fa-xmark" inert></i></button>
+        {{/if}}
+      </figure>
+      {{/each}}
+      <button type="button" class="dxql-thumb dxql-thumb-add {{#if galleryUploading}}busy{{/if}}" data-action="addGalleryImage"
+              data-tooltip="DXQL.AddImageHint">
+        {{#if galleryUploading}}<i class="fa-solid fa-spinner fa-spin" inert></i>{{else}}<i class="fa-solid fa-plus" inert></i>{{/if}}
+        <span>{{localize "DXQL.AddImage"}}</span>
+      </button>
+      {{#if canBrowse}}
+      <button type="button" class="dxql-thumb dxql-thumb-add" data-action="browseGalleryImage" data-tooltip="DXQL.BrowseHint">
+        <i class="fa-solid fa-folder-open" inert></i><span>{{localize "DXQL.Browse"}}</span>
+      </button>
+      {{/if}}
+    </div>
+  </section>
+
+  <footer class="dxql-meta-footer">
+    {{localize "DXQL.CreatedBy" name=createdBy date=createdAt}}{{#if editedLine}} · {{editedLine}}{{/if}}
+  </footer>
+{{/if}}
+</div>

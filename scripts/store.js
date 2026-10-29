@@ -9,7 +9,7 @@ import {
  * Every quest, objective, note and gallery image is keyed by id, and every write is a dot-path update of just that
  * key, so two people editing different parts of the log at the same time never overwrite each other.
  * Quest rewards live next to the quests, in flags.<module>.rewards.<id> of the same two journals (hidden rewards in
- * the "secret" one).
+ * the "secret" one), and so do the party's own notes, in flags.<module>.partyNotes.<id>.
  */
 
 export const STORE_KINDS = ["shared", "secret"];
@@ -879,6 +879,232 @@ export async function deleteAllRewards() {
     if (!Object.keys(raw).length) continue;
     await store.update({ [`flags.${MODULE_ID}.-=rewards`]: null }, { [MODULE_ID]: { type: "reward-deleted-all" } });
     deleted += Object.values(raw).filter(r => r && typeof r === "object").length;
+  }
+  return deleted;
+}
+
+/* ==================================================================== */
+/*  Party notes                                                          */
+/* ==================================================================== */
+
+/*
+ * A note the party keeps, on its own or about a quest: {title, text, tags, questId, links, gallery, pinned}.
+ *   - `links` are keyed {type, name, uuid, sort} like a reward's (places, NPCs, factions, other things).
+ *   - `gallery` is keyed {src, createdBy, createdAt, sort}, so two people adding images at the same time both keep theirs.
+ *   - `questId`: the quest the note is about ("" for a general note).
+ * Hidden notes (GM) live in the "secret" store, like hidden quests. A note about a hidden quest stays there with it.
+ */
+
+const PARTY_NOTE_PATH = `flags.${MODULE_ID}.partyNotes`;
+const QUEST_ID = /^[A-Za-z0-9]{0,32}$/;
+
+/** Turns stored note data into the view model. For players a link to a quest they can't see is left out. */
+export function normalizePartyNote(id, raw, hidden, { forGM = game.user.isGM } = {}) {
+  const questId = typeof raw.questId === "string" && raw.questId && (forGM || questVisible(raw.questId)) ? raw.questId : "";
+  return {
+    id,
+    hidden,
+    title: String(raw.title ?? "").trim() || t("PartyNote.Untitled"),
+    text: String(raw.text ?? ""),
+    tags: Array.isArray(raw.tags) ? [...new Set(raw.tags.map(cleanTag).filter(Boolean))] : [],
+    questId,
+    links: linksOf(raw),
+    gallery: sortedEntries(raw.gallery).filter(g => typeof g.src === "string" && g.src)
+      .map(g => ({ id: g.id, src: g.src, createdBy: g.createdBy ?? null, createdAt: g.createdAt ?? 0 })),
+    pinned: !!raw.pinned,
+    createdBy: raw.createdBy ?? null,
+    authorName: raw.authorName ?? null,
+    editedBy: raw.editedBy ?? null,
+    editedByName: raw.editedByName ?? null,
+    createdAt: raw.createdAt ?? 0,
+    editedAt: raw.editedAt ?? 0,
+    updatedAt: raw.updatedAt ?? raw.createdAt ?? 0
+  };
+}
+
+/** Every party note this user can see. */
+export function allPartyNotes() {
+  const notes = [];
+  for (const kind of STORE_KINDS) {
+    const store = getStore(kind);
+    if (!store || !store.testUserPermission(game.user, "OBSERVER")) continue;
+    for (const [id, n] of Object.entries(store.getFlag(MODULE_ID, "partyNotes") ?? {})) {
+      if (n && typeof n === "object") notes.push(normalizePartyNote(id, n, kind === "secret"));
+    }
+  }
+  return notes;
+}
+
+function rawPartyNote(id) {
+  for (const kind of STORE_KINDS) {
+    const store = getStore(kind);
+    const raw = store?.getFlag(MODULE_ID, "partyNotes")?.[id];
+    if (raw) return { store, kind, raw };
+  }
+  return null;
+}
+
+export function getPartyNote(id) {
+  const found = rawPartyNote(id);
+  if (!found) return null;
+  // Hidden notes are in the GM-only store: players never get them, not even by id.
+  if (!found.store.testUserPermission(game.user, "OBSERVER")) return null;
+  return normalizePartyNote(id, found.raw, found.kind === "secret");
+}
+
+/** The party notes (this user can see) about a quest. */
+export function partyNotesForQuest(questId) {
+  return questId ? allPartyNotes().filter(n => n.questId === questId) : [];
+}
+
+async function patchPartyNote(id, data, event) {
+  const found = rawPartyNote(id);
+  if (!found) throw new Error(`Note ${id} not found`);
+  const update = { [`${PARTY_NOTE_PATH}.${id}`]: { ...data, updatedAt: Date.now() } };
+  return found.store.update(update, { [MODULE_ID]: { ...(event ?? {}), partyNoteId: id } });
+}
+
+/**
+ * The update for the edit form's list of images ([{id, src}] or plain sources). New images get new keys; images that
+ * were in the form when it opened (startIds) and are gone from it are deleted. Images someone else added while the
+ * form was open are not in startIds, so they stay.
+ */
+function galleryFields(list, raw, startIds = []) {
+  const current = new Set(Object.keys(raw?.gallery ?? {}));
+  const kept = new Set();
+  const map = {};
+  const now = Date.now();
+  (list ?? []).forEach((img, i) => {
+    const src = typeof img === "string" ? img : img?.src;
+    if (typeof src !== "string" || !src) return;
+    if (img?.id && current.has(img.id)) return void kept.add(img.id);
+    map[randomId()] = { src: src.slice(0, 500), createdBy: game.user.id, createdAt: now, sort: now + i };
+  });
+  for (const id of startIds) if (current.has(id) && !kept.has(id)) map[`-=${id}`] = null;
+  return map;
+}
+
+function partyNoteFields(data, raw = null) {
+  const out = {};
+  if ("title" in data) out.title = cleanLine(data.title, 120);
+  if ("text" in data) out.text = String(data.text ?? "").trim();
+  if ("tags" in data) out.tags = [...new Set((data.tags ?? []).map(cleanTag).filter(Boolean))];
+  if ("questId" in data) out.questId = typeof data.questId === "string" && QUEST_ID.test(data.questId) ? data.questId : "";
+  if ("links" in data) out.links = linkFields(data.links, raw);
+  if ("pinned" in data) out.pinned = !!data.pinned;
+  if ("images" in data && raw) out.gallery = galleryFields(data.images, raw, data.imagesStart ?? []);
+  // A player can't see a hidden quest, so their form must never clear or change the link to it.
+  if (!game.user.isGM && raw?.questId && !questVisible(raw.questId)) delete out.questId;
+  return out;
+}
+
+/** Creates a note. data: title, text, tags, questId, links ([{type, name, uuid}]), images (sources), pinned. */
+export async function createPartyNote(data = {}, { hidden = false } = {}) {
+  let secret = !!(hidden && game.user.isGM);
+  // Nothing about a hidden quest goes to the shared store before the quest is revealed.
+  if (!secret && questIsHidden(data.questId)) {
+    secret = true;
+    ui.notifications.info(t("PartyNote.KeptHidden"));
+  }
+  const store = getStore(secret ? "secret" : "shared");
+  if (!store) {
+    ui.notifications.warn(t("NotReady"));
+    return null;
+  }
+  const id = randomId();
+  const now = Date.now();
+  const { images, ...rest } = data;
+  const note = {
+    title: "", text: "", tags: [], questId: "", links: {}, gallery: {}, pinned: false,
+    ...partyNoteFields(rest),
+    createdBy: game.user.id,
+    createdAt: now,
+    updatedAt: now
+  };
+  if (!note.title) note.title = t("PartyNote.Untitled");
+  (images ?? []).map(img => (typeof img === "string" ? img : img?.src)).filter(src => typeof src === "string" && src)
+    .forEach((src, i) => { note.gallery[randomId()] = { src: src.slice(0, 500), createdBy: game.user.id, createdAt: now, sort: now + i }; });
+  await store.update({ [`${PARTY_NOTE_PATH}.${id}`]: note },
+    { [MODULE_ID]: { type: "note-created", partyNoteId: id, title: note.title } });
+  return id;
+}
+
+/** Changes a note (data as for createPartyNote; images as [{id, src}] with imagesStart, the ids the form started with). */
+export async function updatePartyNote(id, data) {
+  const found = rawPartyNote(id);
+  if (!found) return;
+  const change = partyNoteFields(data, found.raw);
+  if (found.kind === "shared" && change.questId && questIsHidden(change.questId)) {
+    ui.notifications.warn(t("PartyNote.QuestHidden"));
+    delete change.questId;
+  }
+  if (["title", "text", "tags", "links", "images"].some(k => k in data)) Object.assign(change, { editedBy: game.user.id, editedAt: Date.now() });
+  return patchPartyNote(id, change);
+}
+
+export async function setPartyNotePinned(id, pinned) {
+  const note = getPartyNote(id);
+  if (!note || note.pinned === !!pinned) return;
+  return patchPartyNote(id, { pinned: !!pinned });
+}
+
+export async function addPartyNoteImages(id, sources) {
+  if (!sources?.length || !getPartyNote(id)) return;
+  const now = Date.now();
+  const gallery = {};
+  sources.forEach((src, i) => {
+    if (typeof src === "string" && src) gallery[randomId()] = { src: src.slice(0, 500), createdBy: game.user.id, createdAt: now, sort: now + i };
+  });
+  return patchPartyNote(id, { gallery });
+}
+
+export async function removePartyNoteImage(id, gid) {
+  return patchPartyNote(id, { gallery: { [`-=${gid}`]: null } });
+}
+
+export async function deletePartyNote(id) {
+  const found = rawPartyNote(id);
+  if (!found) return;
+  return found.store.update({ [`${PARTY_NOTE_PATH}.-=${id}`]: null }, { [MODULE_ID]: { type: "note-deleted", partyNoteId: id } });
+}
+
+/** GM only: moves a note between the shared and the secret store. A note about a hidden quest stays hidden. */
+export async function setPartyNoteHidden(id, hidden) {
+  if (!game.user.isGM) return;
+  const found = rawPartyNote(id);
+  const targetKind = hidden ? "secret" : "shared";
+  if (!found || found.kind === targetKind) return;
+  if (!hidden && questIsHidden(found.raw.questId)) return ui.notifications.warn(t("PartyNote.QuestHidden"));
+  const target = getStore(targetKind);
+  if (!target) return;
+  const raw = foundry.utils.deepClone(found.raw);
+  raw.updatedAt = Date.now();
+  await target.update({ [`${PARTY_NOTE_PATH}.${id}`]: raw },
+    { [MODULE_ID]: { type: hidden ? "note-hidden" : "note-revealed", partyNoteId: id, title: raw.title } });
+  await found.store.update({ [`${PARTY_NOTE_PATH}.-=${id}`]: null }, { [MODULE_ID]: { type: "note-moved", partyNoteId: id } });
+}
+
+/** How many party notes are in each store: {shared, secret, total}. */
+export function countPartyNotes() {
+  const counts = { total: 0 };
+  for (const kind of STORE_KINDS) {
+    const raw = getStore(kind)?.getFlag(MODULE_ID, "partyNotes") ?? {};
+    counts[kind] = Object.values(raw).filter(n => n && typeof n === "object").length;
+    counts.total += counts[kind];
+  }
+  return counts;
+}
+
+/** GM only: deletes every party note in both stores. Returns how many were deleted. */
+export async function deleteAllPartyNotes() {
+  if (!game.user.isGM) return 0;
+  let deleted = 0;
+  for (const kind of STORE_KINDS) {
+    const store = getStore(kind);
+    const raw = store?.getFlag(MODULE_ID, "partyNotes") ?? {};
+    if (!Object.keys(raw).length) continue;
+    await store.update({ [`flags.${MODULE_ID}.-=partyNotes`]: null }, { [MODULE_ID]: { type: "note-deleted-all" } });
+    deleted += Object.values(raw).filter(n => n && typeof n === "object").length;
   }
   return deleted;
 }

@@ -2,6 +2,7 @@ import { MODULE_ID, STATUSES, t, escapeHTML, elementToText, htmlToText, imagesIn
 import * as store from "./store.js";
 import { QuestSheet } from "./apps/quest-sheet.js";
 import { RewardSheet } from "./apps/reward-sheet.js";
+import { PartyNoteSheet } from "./apps/party-note-sheet.js";
 
 const { DialogV2 } = foundry.applications.api;
 const NEW_QUEST = "__new";
@@ -161,6 +162,21 @@ export function addAsReward({ text = "", images = [], source = null, title = "" 
   });
 }
 
+/**
+ * Opens the new-note form (Notes view) filled in from a piece of the game: the first line (or title) as the title, the
+ * text with a link back to where it came from, and its images.
+ */
+export function addAsPartyNote({ text = "", images = [], source = null, title = "" } = {}) {
+  if (!store.storesReady()) return ui.notifications.warn(t("NotReady"));
+  const link = source?.uuid ? `${t("From")}: @UUID[${source.uuid}]{${String(source.label).replace(/[{}[\]]/g, "")}}` : "";
+  const body = String(text ?? "").trim().slice(0, MAX_TEXT);
+  return PartyNoteSheet.createNew({
+    title: cleanLine(title, 120) || firstLine(body),
+    text: [body, link].filter(Boolean).join("\n\n"),
+    images
+  });
+}
+
 function firstLine(text) {
   const line = String(text ?? "").split(/\r?\n/).find(l => l.trim()) ?? "";
   return cleanLine(line, 60);
@@ -252,6 +268,7 @@ function sourceForElement(el) {
 
 const MENU_ICON = '<i class="fa-solid fa-scroll"></i>';
 const REWARD_ICON = '<i class="fa-solid fa-gift"></i>';
+const PARTY_NOTE_ICON = '<i class="fa-solid fa-note-sticky"></i>';
 
 export function registerContextMenus() {
   Hooks.on("getChatMessageContextOptions", (app, options) => {
@@ -279,6 +296,14 @@ export function registerContextMenus() {
         const message = game.messages.get(li.dataset.messageId);
         if (message) addAsReward(fromChatMessage(message, li));
       }
+    }, {
+      name: "DXQL.Ctx.AddPartyNote",
+      icon: PARTY_NOTE_ICON,
+      condition: li => store.storesReady() && !!game.messages.get(li.dataset.messageId),
+      callback: li => {
+        const message = game.messages.get(li.dataset.messageId);
+        if (message) addAsPartyNote(fromChatMessage(message, li));
+      }
     });
   });
 
@@ -297,6 +322,9 @@ export function registerContextMenus() {
     }, {
       name: "DXQL.Ctx.AddReward", icon: REWARD_ICON, condition: ok,
       callback: li => addAsReward(fromJournalEntry(entry(li)))
+    }, {
+      name: "DXQL.Ctx.AddPartyNote", icon: PARTY_NOTE_ICON, condition: ok,
+      callback: li => addAsPartyNote(fromJournalEntry(entry(li)))
     });
   });
 
@@ -312,6 +340,9 @@ export function registerContextMenus() {
     }, {
       name: "DXQL.Ctx.AddReward", icon: REWARD_ICON, condition: ok,
       callback: li => addAsReward(fromJournalPage(page(li)))
+    }, {
+      name: "DXQL.Ctx.AddPartyNote", icon: PARTY_NOTE_ICON, condition: ok,
+      callback: li => addAsPartyNote(fromJournalPage(page(li)))
     });
   });
 
@@ -396,6 +427,7 @@ function showSelectionMenu(x, y, found) {
     { act: "objective", icon: "fa-solid fa-list-check", label: t("Ctx.SelectionObjective") },
     { act: "quest", icon: "fa-solid fa-feather-pointed", label: t("Ctx.SelectionQuest") },
     { act: "reward", icon: "fa-solid fa-gift", label: t("Ctx.SelectionReward") },
+    { act: "partyNote", icon: "fa-solid fa-note-sticky", label: t("Ctx.SelectionPartyNote") },
     { sep: true },
     { act: "copy", icon: "fa-solid fa-copy", label: t("Ctx.Copy") }
   ];
@@ -419,6 +451,7 @@ function showSelectionMenu(x, y, found) {
       return;
     }
     if (act === "reward") return addAsReward({ ...found, title: firstLine(found.text) });
+    if (act === "partyNote") return addAsPartyNote({ ...found, title: firstLine(found.text) });
     addToQuestLog({ ...found, type: act, title: firstLine(found.text) });
   });
   setTimeout(() => {

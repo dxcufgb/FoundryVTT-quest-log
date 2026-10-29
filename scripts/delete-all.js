@@ -1,5 +1,5 @@
 import { MODULE_ID, t, escapeHTML } from "./util.js";
-import { countQuests, deleteAllQuests, countRewards, deleteAllRewards, storesReady } from "./store.js";
+import { countQuests, deleteAllQuests, countRewards, deleteAllRewards, countPartyNotes, deleteAllPartyNotes, storesReady } from "./store.js";
 import { exportQuests } from "./transfer.js";
 
 /*
@@ -18,7 +18,8 @@ export async function confirmDeleteAll() {
   }
   const counts = countQuests();
   const rewardCount = countRewards().total;
-  if (!counts.total && !rewardCount) {
+  const noteCount = countPartyNotes().total;
+  if (!counts.total && !rewardCount && !noteCount) {
     ui.notifications.info(t("DeleteAll.Empty"));
     return 0;
   }
@@ -32,6 +33,8 @@ export async function confirmDeleteAll() {
       <p>${t("DeleteAll.Body", { count: counts.total })}</p>
       ${rewardCount ? `<label class="checkbox"><input type="checkbox" name="rewards">
         <i class="fa-solid fa-gift" inert></i> ${escapeHTML(t("DeleteAll.AlsoRewards", { count: rewardCount }))}</label>` : ""}
+      ${noteCount ? `<label class="checkbox"><input type="checkbox" name="partyNotes">
+        <i class="fa-solid fa-note-sticky" inert></i> ${escapeHTML(t("DeleteAll.AlsoPartyNotes", { count: noteCount }))}</label>` : ""}
       ${counts.secret ? `<p class="dxql-hint"><i class="fa-solid fa-eye-slash" inert></i> ${escapeHTML(t("DeleteAll.HiddenNote", { count: counts.secret }))}</p>` : ""}
       <p class="dxql-hint">${escapeHTML(t("DeleteAll.ExportHint"))}</p>
       <button type="button" class="dxql-delete-all-export"><i class="fa-solid fa-file-export" inert></i> ${escapeHTML(t("DeleteAll.ExportFirst"))}</button>
@@ -45,7 +48,7 @@ export async function confirmDeleteAll() {
         action: "delete", label: t("DeleteAll.Delete"), icon: "fa-solid fa-trash",
         callback: (event, button) => {
           if (!typedWord(button.form)) return "cancel";
-          return button.form?.elements.rewards?.checked ? "delete-all" : "delete";
+          return { rewards: !!button.form?.elements.rewards?.checked, partyNotes: !!button.form?.elements.partyNotes?.checked };
         }
       }
     ],
@@ -65,15 +68,20 @@ export async function confirmDeleteAll() {
       input.focus();
     }
   });
-  if (action !== "delete" && action !== "delete-all") return 0;
+  if (!action || typeof action !== "object") return 0;
 
   const deleted = await deleteAllQuests();
   ui.notifications.info(t("DeleteAll.Done", { count: deleted }));
   console.log(`${MODULE_ID} | ${game.user.name} deleted all ${deleted} quests`);
-  if (action === "delete-all") {
+  if (action.rewards) {
     const rewards = await deleteAllRewards();
     ui.notifications.info(t("DeleteAll.RewardsDone", { count: rewards }));
     console.log(`${MODULE_ID} | ${game.user.name} deleted all ${rewards} quest rewards`);
+  }
+  if (action.partyNotes) {
+    const notes = await deleteAllPartyNotes();
+    ui.notifications.info(t("DeleteAll.PartyNotesDone", { count: notes }));
+    console.log(`${MODULE_ID} | ${game.user.name} deleted all ${notes} party notes`);
   }
   return deleted;
 }

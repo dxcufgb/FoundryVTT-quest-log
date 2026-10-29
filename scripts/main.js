@@ -1,10 +1,11 @@
 import { MODULE_ID, t, escapeHTML, isResponsibleGM } from "./util.js";
 import * as store from "./store.js";
-import { QuestLogTab, GROUP_MODES, REWARD_GROUP_MODES, VIEWS } from "./apps/quest-log-tab.js";
+import { QuestLogTab, GROUP_MODES, REWARD_GROUP_MODES, NOTE_GROUP_MODES, NOTE_FILTERS, VIEWS } from "./apps/quest-log-tab.js";
 import { QuestSheet } from "./apps/quest-sheet.js";
 import { RewardSheet } from "./apps/reward-sheet.js";
+import { PartyNoteSheet } from "./apps/party-note-sheet.js";
 import { registerImageSocket } from "./images.js";
-import { registerContextMenus, addToQuestLog, addAsReward } from "./capture.js";
+import { registerContextMenus, addToQuestLog, addAsReward, addAsPartyNote } from "./capture.js";
 import { exportQuests, importQuests } from "./transfer.js";
 import { DeleteAllQuestsMenu, confirmDeleteAll } from "./delete-all.js";
 import { registerQuestLinks, registerAdventureHooks, tidyStoresOnReady, importAdventureQuests, storeInAdventure } from "./adventure.js";
@@ -75,6 +76,14 @@ function registerSettings() {
     scope: "client", config: false, type: String, default: "none",
     choices: Object.fromEntries(REWARD_GROUP_MODES.map(g => [g, g]))
   });
+  game.settings.register(MODULE_ID, "noteFilter", {
+    scope: "client", config: false, type: String, default: "all",
+    choices: Object.fromEntries(NOTE_FILTERS.map(f => [f, f]))
+  });
+  game.settings.register(MODULE_ID, "noteGroupBy", {
+    scope: "client", config: false, type: String, default: "none",
+    choices: Object.fromEntries(NOTE_GROUP_MODES.map(g => [g, g]))
+  });
 }
 
 /** Adds the Quest Log tab to the right sidebar, just before Game Settings. */
@@ -95,6 +104,7 @@ function refreshAll() {
   ui.questlog?.popout?.refresh();
   QuestSheet.refreshAll();
   RewardSheet.refreshAll();
+  PartyNoteSheet.refreshAll();
 }
 
 /* -------------------------------------------- */
@@ -136,9 +146,26 @@ function notifyRewardChange(event, userId) {
   (ui.notifications[level] ?? ui.notifications.info).call(ui.notifications, message);
 }
 
+const NOTIFY_NOTE = {
+  "note-created": ["PartyNote.NotifyCreated", "info"],
+  "note-revealed": ["PartyNote.NotifyRevealed", "info"]
+};
+
+function notifyPartyNoteChange(event, userId) {
+  const entry = NOTIFY_NOTE[event.type];
+  if (!entry) return;
+  const title = store.getPartyNote(event.partyNoteId)?.title ?? "";
+  // A note this user can't see (a hidden one) is never announced to them.
+  if (!title) return;
+  const [key, level] = entry;
+  const message = t(key, { title: escapeHTML(title), name: escapeHTML(game.users.get(userId)?.name ?? "") });
+  (ui.notifications[level] ?? ui.notifications.info).call(ui.notifications, message);
+}
+
 function notifyChange(event, userId) {
   if (!event?.type || userId === game.user.id || !game.settings.get(MODULE_ID, "notify")) return;
   if (event.rewardId) return notifyRewardChange(event, userId);
+  if (event.partyNoteId) return notifyPartyNoteChange(event, userId);
   const entry = event.type === "revealed-notes"
     ? [event.noteType === "clue" ? "NotifyNewClue" : "NotifyNewNote", "info"]
     : NOTIFY[event.type];
@@ -152,14 +179,17 @@ function notifyChange(event, userId) {
   fn.call(ui.notifications, message);
 }
 
-/** Opens the Quest Log tab on its Quest Rewards view. */
-async function openRewards() {
-  await game.settings.set(MODULE_ID, "view", "rewards");
+/** Opens the Quest Log tab on one of its views ("quests", "rewards" or "notes"). */
+async function openView(view) {
+  await game.settings.set(MODULE_ID, "view", view);
   for (const app of [ui.questlog, ui.questlog?.popout]) {
     if (app?.rendered) app.render({ parts: ["nav", "header", "filters", "list"] });
   }
   ui.questlog?.activate();
 }
+
+const openRewards = () => openView("rewards");
+const openNotes = () => openView("notes");
 
 /* -------------------------------------------- */
 /*  Quest completed → add its reward?            */
@@ -260,7 +290,20 @@ Hooks.once("ready", async () => {
       setRewardClaimed: store.setRewardClaimed,
       setRewardHidden: store.setRewardHidden,
       deleteReward: store.deleteReward,
-      offerQuestRewards: id => RewardSheet.offerFromQuest(id)
+      offerQuestRewards: id => RewardSheet.offerFromQuest(id),
+      openNotes,
+      openPartyNote: id => PartyNoteSheet.open(id),
+      newPartyNote: prefill => PartyNoteSheet.createNew(prefill),
+      addAsPartyNote,
+      partyNotes: () => store.allPartyNotes(),
+      getPartyNote: store.getPartyNote,
+      createPartyNote: store.createPartyNote,
+      updatePartyNote: store.updatePartyNote,
+      deletePartyNote: store.deletePartyNote,
+      setPartyNotePinned: store.setPartyNotePinned,
+      setPartyNoteHidden: store.setPartyNoteHidden,
+      addPartyNoteImages: store.addPartyNoteImages,
+      sharePartyNote: id => PartyNoteSheet.share(id)
     };
   } catch (err) {
     console.error(`${MODULE_ID} | ready`, err);
@@ -294,10 +337,13 @@ Hooks.on("renderJournalDirectory", (app, html) => {
   }
 });
 
-// User names and colours show in notes and in the log of reward uses.
+// User names and colours show in notes, in the Notes list and in the log of reward uses.
 Hooks.on("updateUser", (user, changes) => {
   if ("name" in changes || "color" in changes) {
     QuestSheet.refreshAll();
     RewardSheet.refreshAll();
+    PartyNoteSheet.refreshAll();
+    ui.questlog?.refresh();
+    ui.questlog?.popout?.refresh();
   }
 });

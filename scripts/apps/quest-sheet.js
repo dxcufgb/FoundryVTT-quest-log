@@ -6,6 +6,7 @@ import * as store from "../store.js";
 import { tokenize, markTerms } from "../search.js";
 import { uploadImages, pickFiles, browseImage, canBrowse, filesFromEvent, urlFromDrop, showImage } from "../images.js";
 import { RewardSheet, splitRewardText } from "./reward-sheet.js";
+import { PartyNoteSheet } from "./party-note-sheet.js";
 
 const { ApplicationV2, HandlebarsApplicationMixin, DialogV2 } = foundry.applications.api;
 
@@ -81,7 +82,9 @@ export class QuestSheet extends HandlebarsApplicationMixin(ApplicationV2) {
       openSource: QuestSheet.#onOpenSource,
       openRelated: QuestSheet.#onOpenRelated,
       openReward: QuestSheet.#onOpenReward,
-      addReward: QuestSheet.#onAddReward
+      addReward: QuestSheet.#onAddReward,
+      openPartyNote: QuestSheet.#onOpenPartyNote,
+      addPartyNote: QuestSheet.#onAddPartyNote
     }
   };
 
@@ -360,6 +363,9 @@ export class QuestSheet extends HandlebarsApplicationMixin(ApplicationV2) {
         id: r.id, name: r.name, status: r.status, hidden: r.hidden, statusIcon: REWARD_STATUS_ICONS[r.status],
         usesLabel: r.unlimited ? t("Reward.Unlimited") : t("Reward.UsesLeft", { left: r.usesLeft, max: r.maxUses })
       })),
+      partyNotes: store.partyNotesForQuest(quest.id)
+        .sort((a, b) => (b.pinned - a.pinned) || ((b.editedAt || b.createdAt) - (a.editedAt || a.createdAt)))
+        .map(n => ({ id: n.id, title: n.title, pinned: n.pinned, hidden: n.hidden, date: formatDate(n.editedAt || n.createdAt) })),
       createdBy: userInfo(quest.createdBy, quest.authorName).name,
       createdAt: new Date(quest.createdAt || Date.now()).toLocaleDateString()
     });
@@ -1006,6 +1012,16 @@ export class QuestSheet extends HandlebarsApplicationMixin(ApplicationV2) {
     const taken = new Set(store.rewardsForQuest(quest.id).map(r => r.name.toLowerCase()));
     const item = items.find(i => !taken.has(i.toLowerCase())) ?? "";
     RewardSheet.createNew(RewardSheet.prefillFromQuest(quest, item));
+  }
+
+  static #onOpenPartyNote(event, target) {
+    PartyNoteSheet.open(target.dataset.noteId);
+  }
+
+  /** A new party note about this quest. */
+  static #onAddPartyNote() {
+    const quest = this.quest;
+    if (quest) PartyNoteSheet.createNew(PartyNoteSheet.prefillFromQuest(quest));
   }
 }
 
