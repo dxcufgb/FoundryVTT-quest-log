@@ -98,7 +98,7 @@ The first time a GM opens the world after enabling the module, the quest log is 
 
 | Setting | Scope | Default | What it does |
 |---|---|---|---|
-| Announce quest changes | World | On | Notification to everyone when a quest is added, revealed, completed, failed or reopened, a quest reward is added, revealed, used, used up, marked claimed or made active again, or a note is added or revealed. |
+| Announce quest changes | World | On | Notification to everyone when a quest is added, revealed, completed, failed or reopened or a hidden part of it is revealed, a quest reward is added, revealed, used, used up, marked claimed or made active again, or a note is added or revealed. |
 | Offer quest rewards on completion | World | On | When a quest with a reward is completed, the GM is asked whether to add it to the Quest Rewards. |
 | Players can delete anything | World | Off | Off: players delete only their own quests, objectives, notes and images. |
 | Import quests from adventures | World | On | Adds the quests stored in an adventure to the quest log (hidden) when a GM imports it. |
