@@ -1,0 +1,18 @@
+<div class="dxql-filters">
+  <nav class="dxql-status-tabs" aria-label="{{localize "DXQL.Reward.StatusFilter"}}">
+    {{#each statusTabs}}
+    <button type="button" class="dxql-status-tab reward-status-{{id}} {{#if active}}active{{/if}}" data-action="setStatusFilter"
+            data-status="{{id}}" aria-pressed="{{active}}">
+      {{label}} <span class="dxql-count">{{count}}</span>
+    </button>
+    {{/each}}
+  </nav>
+  <div class="dxql-toolbar">
+    <label class="dxql-groupby">
+      <i class="fa-solid fa-layer-group" inert></i>
+      <select name="groupBy" aria-label="{{localize "DXQL.Reward.GroupByLabel"}}">
+        {{selectOptions groupOptions selected=groupBy}}
+      </select>
+    </label>
+  </div>
+</div>

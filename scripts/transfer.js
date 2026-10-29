@@ -1,13 +1,16 @@
-import { MODULE_ID, STATUSES, NOTE_TYPES, HIDEABLE_FIELDS, PART_KINDS, QUEST_TYPES, t, escapeHTML, randomId, cleanLine, cleanTag } from "./util.js";
+import {
+  MODULE_ID, STATUSES, NOTE_TYPES, HIDEABLE_FIELDS, PART_KINDS, QUEST_TYPES, LINK_TYPES, MAX_USES, t, escapeHTML, randomId, cleanLine, cleanTag
+} from "./util.js";
 import { STORE_KINDS, getStore } from "./store.js";
 
 /*
- * GM export / import of the whole quest log as a JSON file.
+ * GM export / import of the whole quest log (quests and quest rewards) as a JSON file.
  * Images are exported as paths (not embedded); they show up after an import when the files exist on that server.
  */
 
 const FORMAT = 1;
 const FLAG_PATH = `flags.${MODULE_ID}.quests`;
+const REWARD_PATH = `flags.${MODULE_ID}.rewards`;
 const { DialogV2 } = foundry.applications.api;
 
 /* -------------------------------------------- */
@@ -30,6 +33,16 @@ function withNames(raw) {
     }
   }
   return quest;
+}
+
+/** A copy of a stored reward with the names of its author and of who used it. */
+function rewardWithNames(raw) {
+  const reward = foundry.utils.deepClone(raw);
+  reward.authorName ??= userName(reward.createdBy);
+  for (const use of Object.values(reward.uses ?? {})) {
+    if (use && typeof use === "object") use.byName ??= userName(use.by);
+  }
+  return reward;
 }
 
 /** A copy of an exported quest without the parts and fields hidden from players. */
@@ -61,11 +74,17 @@ export async function exportQuests() {
       if (quest && typeof quest === "object") stored.push({ id, hidden: kind === "secret", quest });
     }
   }
-  if (!stored.length) return ui.notifications.warn(t("Transfer.NothingToExport"));
+  const storedRewards = [];
+  for (const kind of STORE_KINDS) {
+    for (const [id, reward] of Object.entries(getStore(kind)?.getFlag(MODULE_ID, "rewards") ?? {})) {
+      if (reward && typeof reward === "object") storedRewards.push({ id, hidden: kind === "secret", reward });
+    }
+  }
+  if (!stored.length && !storedRewards.length) return ui.notifications.warn(t("Transfer.NothingToExport"));
 
   const hasHiddenParts = q => (q.hiddenFields?.length > 0)
     || PART_KINDS.some(kind => Object.values(q[kind] ?? {}).some(part => part?.hidden));
-  const hiddenCount = stored.filter(s => s.hidden || hasHiddenParts(s.quest)).length;
+  const hiddenCount = stored.filter(s => s.hidden || hasHiddenParts(s.quest)).length + storedRewards.filter(r => r.hidden).length;
   const statusRows = STATUSES.map(status => {
     const count = stored.filter(s => (s.quest.status ?? "active") === status).length;
     return `<label class="checkbox"><input type="checkbox" name="status-${status}" checked ${count ? "" : "disabled"}>
@@ -78,6 +97,8 @@ export async function exportQuests() {
       <p>${escapeHTML(t("Transfer.ExportIntro"))}</p>
       <fieldset><legend>${escapeHTML(t("Transfer.Include"))}</legend>
         <div class="dxql-transfer-checks">${statusRows}</div>
+        ${storedRewards.length ? `<label class="checkbox"><input type="checkbox" name="rewards" checked>
+          <i class="fa-solid fa-gift" inert></i> ${escapeHTML(t("Transfer.IncludeRewards"))} <span class="dxql-count">${storedRewards.length}</span></label>` : ""}
         ${hiddenCount ? `<label class="checkbox"><input type="checkbox" name="hidden" checked>
           <i class="fa-solid fa-eye-slash" inert></i> ${escapeHTML(t("Transfer.IncludeHidden"))} <span class="dxql-count">${hiddenCount}</span></label>` : ""}
       </fieldset>
@@ -99,7 +120,10 @@ export async function exportQuests() {
     .filter(s => !s.hidden || options.hidden !== false)
     .map(s => ({ id: s.id, hidden: s.hidden, ...withNames(s.quest) }))
     .map(q => (options.hidden === false ? withoutHiddenParts(q) : q));
-  if (!quests.length) return ui.notifications.warn(t("Transfer.NothingToExport"));
+  const rewards = options.rewards === false ? [] : storedRewards
+    .filter(r => !r.hidden || options.hidden !== false)
+    .map(r => ({ id: r.id, hidden: r.hidden, ...rewardWithNames(r.reward) }));
+  if (!quests.length && !rewards.length) return ui.notifications.warn(t("Transfer.NothingToExport"));
 
   const data = {
     module: MODULE_ID,
@@ -108,11 +132,12 @@ export async function exportQuests() {
     world: game.world.id,
     worldTitle: game.world.title,
     exportedAt: new Date().toISOString(),
-    quests
+    quests,
+    rewards
   };
   const date = new Date().toISOString().slice(0, 10);
   foundry.utils.saveDataToFile(JSON.stringify(data, null, 2), "application/json", `quest-log-${game.world.id}-${date}.json`);
-  ui.notifications.info(t("Transfer.Exported", { count: quests.length }));
+  ui.notifications.info(t(rewards.length ? "Transfer.ExportedWithRewards" : "Transfer.Exported", { count: quests.length, rewards: rewards.length }));
 }
 
 /* -------------------------------------------- */
@@ -213,6 +238,46 @@ export function sanitizeQuest(q) {
   return quest;
 }
 
+/** Turns one reward from a file into stored data, dropping anything unexpected. Returns null if unusable. */
+export function sanitizeReward(r) {
+  if (!r || typeof r !== "object") return null;
+  const title = cleanLine(r.name, 120);
+  if (!title) return null;
+  const now = Date.now();
+  const maxUses = Math.min(Math.max(Math.floor(num(r.maxUses)), 0), MAX_USES);
+  const reward = {
+    name: title,
+    description: str(r.description).trim(),
+    img: str(r.img, 500),
+    maxUses,
+    spent: Math.min(Math.max(Math.trunc(num(r.spent)), -MAX_USES), MAX_USES),
+    uses: {},
+    claimed: !!r.claimed,
+    claimedAt: num(r.claimedAt),
+    questId: typeof r.questId === "string" && ID.test(r.questId) ? r.questId : "",
+    links: {},
+    createdBy: userId(r.createdBy),
+    authorName: name(r.authorName),
+    createdAt: num(r.createdAt) || now,
+    updatedAt: num(r.updatedAt) || now
+  };
+  for (const [id, u] of entries(r.uses)) {
+    reward.uses[id] = { by: userId(u.by), byName: name(u.byName), at: num(u.at), sort: num(u.sort) || num(u.at) };
+  }
+  const linkList = Array.isArray(r.links) ? r.links.map(l => (typeof l === "string" ? { name: l } : l)) : r.links;
+  entries(linkList).forEach(([id, l], i) => {
+    const linkName = cleanLine(l.name, 120);
+    if (!linkName) return;
+    reward.links[id] = {
+      type: LINK_TYPES.includes(l.type) ? l.type : "other",
+      name: linkName,
+      uuid: str(l.uuid, 200),
+      sort: Number.isFinite(Number(l.sort)) ? Number(l.sort) : i
+    };
+  });
+  return reward;
+}
+
 function pickJsonFile() {
   return new Promise(resolve => {
     const input = document.createElement("input");
@@ -224,7 +289,10 @@ function pickJsonFile() {
   });
 }
 
-/** Reads and checks an export file. Returns {quests: [{id, hidden, quest}], meta} or throws a readable error. */
+/**
+ * Reads and checks an export file. Returns {quests: [{id, hidden, quest}], rewards: [{id, hidden, reward}], hasRewards,
+ * meta} or throws a readable error.
+ */
 export function parseExport(text) {
   let data;
   try {
@@ -240,7 +308,7 @@ export function parseExport(text) {
  * hiddenByDefault: a quest without a "hidden" field is treated as hidden (used for adventures).
  */
 export function parseExportData(data, { hiddenByDefault = false } = {}) {
-  const list = Array.isArray(data) ? data : data?.quests;
+  const list = Array.isArray(data) ? data : data?.quests ?? (Array.isArray(data?.rewards) ? [] : null);
   if (!Array.isArray(list) || (!Array.isArray(data) && data.module && data.module !== MODULE_ID)) {
     throw new Error(t("Transfer.NotAnExport"));
   }
@@ -254,9 +322,25 @@ export function parseExportData(data, { hiddenByDefault = false } = {}) {
     const hidden = typeof raw.hidden === "boolean" ? raw.hidden : hiddenByDefault;
     quests.push({ id, hidden, quest });
   }
-  if (!quests.length) throw new Error(t("Transfer.NoQuestsInFile"));
+  const rewards = [];
+  const rewardList = !Array.isArray(data) && Array.isArray(data?.rewards) ? data.rewards : [];
+  const seenRewards = new Set();
+  for (const raw of rewardList) {
+    const reward = sanitizeReward(raw);
+    if (!reward) continue;
+    const id = typeof raw.id === "string" && ID.test(raw.id) && !seenRewards.has(raw.id) ? raw.id : randomId();
+    seenRewards.add(id);
+    rewards.push({ id, hidden: typeof raw.hidden === "boolean" ? raw.hidden : hiddenByDefault, reward });
+  }
+  if (!quests.length && !rewards.length) throw new Error(t("Transfer.NoQuestsInFile"));
   const meta = Array.isArray(data) ? {} : data;
-  return { quests, meta: { worldTitle: meta.worldTitle ?? meta.world ?? null, exportedAt: meta.exportedAt ?? null } };
+  return {
+    quests,
+    rewards,
+    // Only a file that has a rewards list replaces the rewards (older exports have none).
+    hasRewards: !Array.isArray(data) && Array.isArray(data?.rewards),
+    meta: { worldTitle: meta.worldTitle ?? meta.world ?? null, exportedAt: meta.exportedAt ?? null }
+  };
 }
 
 /** Imports quests from a JSON export. Asks for a file when none is given (a File or Blob with a name). */
@@ -279,7 +363,11 @@ export async function importQuests(file = null) {
   for (const kind of STORE_KINDS) {
     for (const id of Object.keys(getStore(kind)?.getFlag(MODULE_ID, "quests") ?? {})) current.set(id, kind);
   }
-  const overlap = parsed.quests.filter(q => current.has(q.id)).length;
+  const currentRewards = new Map();
+  for (const kind of STORE_KINDS) {
+    for (const id of Object.keys(getStore(kind)?.getFlag(MODULE_ID, "rewards") ?? {})) currentRewards.set(id, kind);
+  }
+  const overlap = parsed.quests.filter(q => current.has(q.id)).length + parsed.rewards.filter(r => currentRewards.has(r.id)).length;
   const hidden = parsed.quests.filter(q => q.hidden || q.quest.hiddenFields.length
     || PART_KINDS.some(kind => Object.values(q.quest[kind]).some(part => part.hidden))).length;
   const from = [parsed.meta.worldTitle, parsed.meta.exportedAt ? new Date(parsed.meta.exportedAt).toLocaleString() : null]
@@ -289,7 +377,8 @@ export async function importQuests(file = null) {
     window: { title: t("Transfer.ImportTitle"), icon: "fa-solid fa-file-import" },
     position: { width: 460 },
     content: `<div class="dxql dxql-transfer">
-      <p>${t("Transfer.ImportSummary", { count: parsed.quests.length, file: escapeHTML(file.name) })}${from ? `<br><span class="dxql-hint">${from}</span>` : ""}</p>
+      <p>${t(parsed.rewards.length ? "Transfer.ImportSummaryRewards" : "Transfer.ImportSummary",
+        { count: parsed.quests.length, rewards: parsed.rewards.length, file: escapeHTML(file.name) })}${from ? `<br><span class="dxql-hint">${from}</span>` : ""}</p>
       ${hidden ? `<p class="dxql-hint"><i class="fa-solid fa-eye-slash" inert></i> ${escapeHTML(t("Transfer.HiddenNote", { count: hidden }))}</p>` : ""}
       <label class="dxql-transfer-mode"><input type="radio" name="mode" value="merge" checked>
         <span><b>${escapeHTML(t("Transfer.Merge"))}</b><br><span class="dxql-hint">${escapeHTML(overlap
@@ -320,23 +409,36 @@ export async function importQuests(file = null) {
   const options = { [MODULE_ID]: { type: "imported" } };
   const stores = { shared, secret };
 
-  // Clear what's being replaced: the whole log, or (merge) the quests the file brings a new version of.
+  // Clear what's being replaced: the whole log, or (merge) the quests and rewards the file brings a new version of.
   for (const kind of STORE_KINDS) {
     const store = stores[kind];
     if (mode === "replace") {
-      if (Object.keys(store.getFlag(MODULE_ID, "quests") ?? {}).length) {
-        await store.update({ [`flags.${MODULE_ID}.-=quests`]: null }, options);
-      }
+      const clear = {};
+      if (Object.keys(store.getFlag(MODULE_ID, "quests") ?? {}).length) clear[`flags.${MODULE_ID}.-=quests`] = null;
+      if (parsed.hasRewards && Object.keys(store.getFlag(MODULE_ID, "rewards") ?? {}).length) clear[`flags.${MODULE_ID}.-=rewards`] = null;
+      if (Object.keys(clear).length) await store.update(clear, options);
       continue;
     }
     const removals = {};
     for (const q of parsed.quests) if (current.get(q.id) === kind) removals[`${FLAG_PATH}.-=${q.id}`] = null;
+    for (const r of parsed.rewards) if (currentRewards.get(r.id) === kind) removals[`${REWARD_PATH}.-=${r.id}`] = null;
     if (Object.keys(removals).length) await store.update(removals, options);
   }
+  // A reward from a hidden quest goes to the GM-only store with it.
+  const hiddenQuests = new Set(parsed.quests.filter(q => q.hidden).map(q => q.id));
+  if (mode !== "replace") for (const [id, kind] of current) if (kind === "secret" && !parsed.quests.some(q => q.id === id)) hiddenQuests.add(id);
   for (const kind of STORE_KINDS) {
+    const update = {};
     const map = {};
     for (const q of parsed.quests) if ((q.hidden ? "secret" : "shared") === kind) map[q.id] = q.quest;
-    if (Object.keys(map).length) await stores[kind].update({ [FLAG_PATH]: map }, options);
+    if (Object.keys(map).length) update[FLAG_PATH] = map;
+    const rewardMap = {};
+    for (const r of parsed.rewards) {
+      if (((r.hidden || hiddenQuests.has(r.reward.questId)) ? "secret" : "shared") === kind) rewardMap[r.id] = r.reward;
+    }
+    if (Object.keys(rewardMap).length) update[REWARD_PATH] = rewardMap;
+    if (Object.keys(update).length) await stores[kind].update(update, options);
   }
-  ui.notifications.info(t("Transfer.Imported", { count: parsed.quests.length }));
+  ui.notifications.info(t(parsed.rewards.length ? "Transfer.ImportedWithRewards" : "Transfer.Imported",
+    { count: parsed.quests.length, rewards: parsed.rewards.length }));
 }

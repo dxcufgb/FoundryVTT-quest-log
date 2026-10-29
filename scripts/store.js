@@ -1,4 +1,6 @@
-import { MODULE_ID, STATUSES, NOTE_TYPES, HIDEABLE_FIELDS, PART_KINDS, QUEST_TYPES, t, isResponsibleGM, randomId, cleanLine, cleanTag } from "./util.js";
+import {
+  MODULE_ID, STATUSES, NOTE_TYPES, HIDEABLE_FIELDS, PART_KINDS, QUEST_TYPES, LINK_TYPES, MAX_USES, t, isResponsibleGM, randomId, cleanLine, cleanTag
+} from "./util.js";
 
 /*
  * Quests live in the flags of two journal entries that the module creates and hides from the Journal directory:
@@ -6,6 +8,8 @@ import { MODULE_ID, STATUSES, NOTE_TYPES, HIDEABLE_FIELDS, PART_KINDS, QUEST_TYP
  *   - "secret": default ownership NONE, the GM's hidden quests (players' clients never receive it).
  * Every quest, objective, note and gallery image is keyed by id, and every write is a dot-path update of just that
  * key, so two people editing different parts of the log at the same time never overwrite each other.
+ * Quest rewards live next to the quests, in flags.<module>.rewards.<id> of the same two journals (hidden rewards in
+ * the "secret" one).
  */
 
 export const STORE_KINDS = ["shared", "secret"];
@@ -589,4 +593,292 @@ export async function convertCategoryTags() {
     if (Object.keys(update).length) await store.update(update, { [MODULE_ID]: { type: "converted" } });
   }
   return changed;
+}
+
+/* ==================================================================== */
+/*  Quest rewards                                                        */
+/* ==================================================================== */
+
+/*
+ * A reward the party got: {name, description, img, maxUses, spent, uses, claimed, claimedAt, questId, links}.
+ *   - maxUses 0 = no limit: the reward is available for as long as the party plays.
+ *   - Each use is its own keyed entry in `uses` ({by, at}), so two players using a reward at the same time both
+ *     count. `spent` is an offset set from the edit form ("3 of 5 uses left" when received half used).
+ *   - A reward whose uses are all spent is claimed; `claimed: true` also puts one away by hand.
+ *   - `links` are keyed {type, name, uuid, sort}: the places, NPCs, factions … the reward is tied to.
+ *   - `questId`: the quest it came from.
+ */
+
+const REWARD_PATH = `flags.${MODULE_ID}.rewards`;
+
+export function clampUses(value) {
+  const n = Math.floor(Number(value));
+  return Number.isFinite(n) ? Math.min(Math.max(n, 0), MAX_USES) : 0;
+}
+
+/** The links of a stored reward: [{id, type, name, uuid, sort}]. */
+export function linksOf(raw) {
+  return sortedEntries(raw?.links).map(l => ({
+    id: l.id,
+    type: LINK_TYPES.includes(l.type) ? l.type : "other",
+    name: cleanLine(l.name, 120),
+    uuid: typeof l.uuid === "string" ? l.uuid.slice(0, 200) : "",
+    sort: l.sort ?? 0
+  })).filter(l => l.name);
+}
+
+/** Is the quest with this id in a store this user can see? */
+function questVisible(questId) {
+  return !!questId && !!getQuest(questId);
+}
+
+/** Turns stored reward data into the view model. For players a link to a quest they can't see is left out. */
+export function normalizeReward(id, raw, hidden, { forGM = game.user.isGM } = {}) {
+  const maxUses = clampUses(raw.maxUses);
+  const log = sortedEntries(raw.uses).map(u => ({ id: u.id, by: u.by ?? null, byName: u.byName ?? null, at: u.at ?? 0 }));
+  const spent = Math.trunc(Number(raw.spent)) || 0;
+  const used = Math.max(0, spent + log.length);
+  const usesLeft = maxUses ? Math.max(0, maxUses - used) : null;
+  const usedUp = maxUses > 0 && usesLeft === 0;
+  const questId = typeof raw.questId === "string" && (forGM ? raw.questId : questVisible(raw.questId) ? raw.questId : "");
+  return {
+    id,
+    hidden,
+    name: String(raw.name ?? "").trim() || t("Reward.Untitled"),
+    description: String(raw.description ?? ""),
+    img: typeof raw.img === "string" ? raw.img : "",
+    maxUses,
+    unlimited: !maxUses,
+    usesLeft,
+    used: maxUses ? Math.min(used, maxUses) : used,
+    usedUp,
+    status: raw.claimed || usedUp ? "claimed" : "active",
+    /** Each use, oldest first: [{id, by, byName, at}]. */
+    log,
+    links: linksOf(raw),
+    questId: questId || "",
+    createdBy: raw.createdBy ?? null,
+    authorName: raw.authorName ?? null,
+    createdAt: raw.createdAt ?? 0,
+    updatedAt: raw.updatedAt ?? raw.createdAt ?? 0,
+    claimedAt: raw.claimedAt ?? 0
+  };
+}
+
+/** Every reward this user can see. */
+export function allRewards() {
+  const rewards = [];
+  for (const kind of STORE_KINDS) {
+    const store = getStore(kind);
+    if (!store || !store.testUserPermission(game.user, "OBSERVER")) continue;
+    for (const [id, r] of Object.entries(store.getFlag(MODULE_ID, "rewards") ?? {})) {
+      if (r && typeof r === "object") rewards.push(normalizeReward(id, r, kind === "secret"));
+    }
+  }
+  return rewards;
+}
+
+function rawReward(id) {
+  for (const kind of STORE_KINDS) {
+    const store = getStore(kind);
+    const raw = store?.getFlag(MODULE_ID, "rewards")?.[id];
+    if (raw) return { store, kind, raw };
+  }
+  return null;
+}
+
+export function getReward(id) {
+  const found = rawReward(id);
+  if (!found) return null;
+  // Hidden rewards are in the GM-only store: players never get them, not even by id.
+  if (!found.store.testUserPermission(game.user, "OBSERVER")) return null;
+  return normalizeReward(id, found.raw, found.kind === "secret");
+}
+
+/** The rewards (this user can see) that came from a quest. */
+export function rewardsForQuest(questId) {
+  return questId ? allRewards().filter(r => r.questId === questId) : [];
+}
+
+/** Is a quest in the GM-only store? Rewards from it must stay there too until the quest is revealed. */
+function questIsHidden(questId) {
+  return !!questId && rawQuest(questId)?.kind === "secret";
+}
+
+async function patchReward(id, data, event) {
+  const found = rawReward(id);
+  if (!found) throw new Error(`Reward ${id} not found`);
+  const update = { [`${REWARD_PATH}.${id}`]: { ...data, updatedAt: Date.now() } };
+  return found.store.update(update, { [MODULE_ID]: { ...(event ?? {}), rewardId: id } });
+}
+
+/**
+ * The update for a new list of links [{id, type, name, uuid}] (from the edit form): links keep their ids, removed
+ * ones are deleted with "-=id".
+ */
+function linkFields(list, raw) {
+  const current = raw ? linksOf(raw) : [];
+  const currentIds = new Set(current.map(l => l.id));
+  const map = {};
+  const kept = new Set();
+  (list ?? []).forEach((l, i) => {
+    const name = cleanLine(l?.name, 120);
+    if (!name) return;
+    const known = l.id && currentIds.has(l.id);
+    const lid = known ? l.id : randomId();
+    if (known) kept.add(l.id);
+    map[lid] = {
+      type: LINK_TYPES.includes(l.type) ? l.type : "other",
+      name,
+      uuid: typeof l.uuid === "string" ? l.uuid.slice(0, 200) : "",
+      sort: i
+    };
+  });
+  for (const c of current) if (!kept.has(c.id)) map[`-=${c.id}`] = null;
+  return map;
+}
+
+function rewardFields(data, raw = null) {
+  const out = {};
+  if ("name" in data) out.name = cleanLine(data.name, 120);
+  if ("description" in data) out.description = String(data.description ?? "").trim();
+  if ("img" in data) out.img = typeof data.img === "string" ? data.img.slice(0, 500) : "";
+  if ("maxUses" in data) out.maxUses = clampUses(data.maxUses);
+  if ("questId" in data) out.questId = typeof data.questId === "string" && /^[A-Za-z0-9]{0,32}$/.test(data.questId) ? data.questId : "";
+  if ("links" in data) out.links = linkFields(data.links, raw);
+  // "N uses left" from the form: the uses already logged stay, `spent` makes up the difference.
+  const max = out.maxUses ?? clampUses(raw?.maxUses);
+  if ("usesLeft" in data && max) {
+    const logged = Object.values(raw?.uses ?? {}).filter(u => u && typeof u === "object").length;
+    const left = Math.min(clampUses(data.usesLeft), max);
+    out.spent = max - left - logged;
+  }
+  // A player can't see a hidden quest, so their form must never clear or change the link to it.
+  if (!game.user.isGM && raw?.questId && !questVisible(raw.questId)) delete out.questId;
+  return out;
+}
+
+export async function createReward(data = {}, { hidden = false } = {}) {
+  let secret = !!(hidden && game.user.isGM);
+  // Nothing from a hidden quest goes to the shared store before the quest is revealed.
+  if (!secret && questIsHidden(data.questId)) {
+    secret = true;
+    ui.notifications.info(t("Reward.KeptHidden"));
+  }
+  const store = getStore(secret ? "secret" : "shared");
+  if (!store) {
+    ui.notifications.warn(t("NotReady"));
+    return null;
+  }
+  const id = randomId();
+  const now = Date.now();
+  const reward = {
+    name: "", description: "", img: "", maxUses: 0, spent: 0, uses: {}, claimed: false, claimedAt: 0, questId: "", links: {},
+    ...rewardFields(data),
+    createdBy: game.user.id,
+    createdAt: now,
+    updatedAt: now
+  };
+  if (!reward.name) reward.name = t("Reward.Untitled");
+  await store.update({ [`${REWARD_PATH}.${id}`]: reward },
+    { [MODULE_ID]: { type: "reward-created", rewardId: id, title: reward.name } });
+  return id;
+}
+
+export async function updateReward(id, data) {
+  const found = rawReward(id);
+  if (!found) return;
+  const change = rewardFields(data, found.raw);
+  if (found.kind === "shared" && change.questId && questIsHidden(change.questId)) {
+    ui.notifications.warn(t("Reward.QuestHidden"));
+    delete change.questId;
+  }
+  return patchReward(id, change);
+}
+
+/** Uses a reward once. The use that spends the last one moves it to the claimed rewards. */
+export async function useReward(id) {
+  const reward = getReward(id);
+  if (!reward || reward.status !== "active" || reward.unlimited) return;
+  const uid = randomId();
+  const now = Date.now();
+  const last = reward.usesLeft <= 1;
+  const left = Math.max(0, reward.usesLeft - 1);
+  return patchReward(id, { uses: { [uid]: { by: game.user.id, at: now, sort: now } }, ...(last ? { claimedAt: now } : {}) },
+    { type: last ? "reward-usedup" : "reward-used", title: reward.name, left, max: reward.maxUses });
+}
+
+/** Takes back the latest use (a misclick). A reward that was used up becomes active again. */
+export async function undoRewardUse(id) {
+  const found = rawReward(id);
+  const reward = getReward(id);
+  if (!found || !reward || reward.unlimited || !reward.used) return;
+  const latest = reward.log.at(-1);
+  const change = latest ? { uses: { [`-=${latest.id}`]: null } } : { spent: (Math.trunc(Number(found.raw.spent)) || 0) - 1 };
+  return patchReward(id, change, reward.usedUp && !found.raw.claimed ? { type: "reward-restored", title: reward.name } : null);
+}
+
+/** Fills a reward's uses again (and makes it active). */
+export async function refillReward(id) {
+  const reward = getReward(id);
+  if (!reward || reward.unlimited) return;
+  return patchReward(id, { "-=uses": null, spent: 0, claimed: false, claimedAt: 0 },
+    reward.status === "claimed" ? { type: "reward-restored", title: reward.name } : null);
+}
+
+/** Puts a reward away as claimed, or brings it back (a used-up reward comes back with its uses filled again). */
+export async function setRewardClaimed(id, claimed) {
+  const reward = getReward(id);
+  if (!reward || (reward.status === "claimed") === !!claimed) return;
+  if (claimed) return patchReward(id, { claimed: true, claimedAt: Date.now() }, { type: "reward-claimed", title: reward.name });
+  const change = { claimed: false, claimedAt: 0 };
+  if (reward.usedUp) Object.assign(change, { "-=uses": null, spent: 0 });
+  return patchReward(id, change, { type: "reward-restored", title: reward.name });
+}
+
+export async function deleteReward(id) {
+  const found = rawReward(id);
+  if (!found) return;
+  return found.store.update({ [`${REWARD_PATH}.-=${id}`]: null }, { [MODULE_ID]: { type: "reward-deleted", rewardId: id } });
+}
+
+/** GM only: moves a reward between the shared and the secret store. A reward from a hidden quest stays hidden. */
+export async function setRewardHidden(id, hidden) {
+  if (!game.user.isGM) return;
+  const found = rawReward(id);
+  const targetKind = hidden ? "secret" : "shared";
+  if (!found || found.kind === targetKind) return;
+  if (!hidden && questIsHidden(found.raw.questId)) return ui.notifications.warn(t("Reward.QuestHidden"));
+  const target = getStore(targetKind);
+  if (!target) return;
+  const raw = foundry.utils.deepClone(found.raw);
+  raw.updatedAt = Date.now();
+  await target.update({ [`${REWARD_PATH}.${id}`]: raw },
+    { [MODULE_ID]: { type: hidden ? "reward-hidden" : "reward-revealed", rewardId: id, title: raw.name } });
+  await found.store.update({ [`${REWARD_PATH}.-=${id}`]: null }, { [MODULE_ID]: { type: "reward-moved", rewardId: id } });
+}
+
+/** How many rewards are in each store: {shared, secret, total}. */
+export function countRewards() {
+  const counts = { total: 0 };
+  for (const kind of STORE_KINDS) {
+    const raw = getStore(kind)?.getFlag(MODULE_ID, "rewards") ?? {};
+    counts[kind] = Object.values(raw).filter(r => r && typeof r === "object").length;
+    counts.total += counts[kind];
+  }
+  return counts;
+}
+
+/** GM only: deletes every reward in both stores. Returns how many were deleted. */
+export async function deleteAllRewards() {
+  if (!game.user.isGM) return 0;
+  let deleted = 0;
+  for (const kind of STORE_KINDS) {
+    const store = getStore(kind);
+    const raw = store?.getFlag(MODULE_ID, "rewards") ?? {};
+    if (!Object.keys(raw).length) continue;
+    await store.update({ [`flags.${MODULE_ID}.-=rewards`]: null }, { [MODULE_ID]: { type: "reward-deleted-all" } });
+    deleted += Object.values(raw).filter(r => r && typeof r === "object").length;
+  }
+  return deleted;
 }

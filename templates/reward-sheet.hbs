@@ -1,0 +1,222 @@
+<div class="dxql-sheet-scroll">
+{{#if missing}}
+  <div class="dxql-empty">
+    <i class="fa-solid fa-ghost" inert></i>
+    <p>{{localize "DXQL.Reward.Gone"}}</p>
+  </div>
+{{else if editing}}
+  {{!-- ============================ EDIT / CREATE ============================ --}}
+  <form class="dxql-edit" autocomplete="off">
+    <h2 class="dxql-edit-heading">
+      <i class="fa-solid {{#if isNew}}fa-gift{{else}}fa-pen{{/if}}" inert></i>
+      {{#if isNew}}{{localize "DXQL.Reward.New"}}{{else}}{{localize "DXQL.Reward.Edit"}}{{/if}}
+    </h2>
+
+    <div class="dxql-reward-top">
+      <div class="dxql-reward-image" data-drop="image">
+        {{#if draft.img}}
+        <figure class="dxql-thumb">
+          <img src="{{draft.img}}" alt="" data-action="viewImage" data-src="{{draft.img}}">
+          <button type="button" class="dxql-thumb-remove" data-action="removeImage" aria-label="{{localize "DXQL.RemoveImage"}}">
+            <i class="fa-solid fa-xmark" inert></i></button>
+        </figure>
+        {{else}}
+        <button type="button" class="dxql-thumb dxql-thumb-add {{#if uploading}}busy{{/if}}" data-action="uploadImage"
+                data-tooltip="DXQL.Reward.Hint.Image">
+          {{#if uploading}}<i class="fa-solid fa-spinner fa-spin" inert></i>{{else}}<i class="fa-solid fa-image" inert></i>{{/if}}
+          <span>{{localize "DXQL.Image"}}</span>
+        </button>
+        {{/if}}
+        {{#if canBrowse}}
+        <button type="button" class="dxql-icon-btn" data-action="browseImage" data-tooltip="DXQL.BrowseHint"
+                aria-label="{{localize "DXQL.Browse"}}"><i class="fa-solid fa-folder-open" inert></i></button>
+        {{/if}}
+      </div>
+      <div class="dxql-field wide" data-drop="item">
+        <label for="{{appId}}-title">{{localize "DXQL.Reward.Field.Name"}}</label>
+        <input id="{{appId}}-title" type="text" data-bind="draft.name" value="{{draft.name}}" required
+               placeholder="{{localize "DXQL.Reward.Placeholder.Name"}}" maxlength="120">
+        <p class="dxql-hint">{{localize "DXQL.Reward.Hint.Item"}}</p>
+      </div>
+    </div>
+
+    <div class="dxql-field wide">
+      <label>{{localize "DXQL.Reward.Field.Uses"}}</label>
+      <div class="dxql-segmented dxql-type-select" role="radiogroup" aria-label="{{localize "DXQL.Reward.Field.Uses"}}">
+        <button type="button" class="{{#unless draft.limited}}active{{/unless}}" data-action="setLimited" data-limited="false"
+                role="radio" aria-checked="{{#if draft.limited}}false{{else}}true{{/if}}"><i class="fa-solid fa-infinity" inert></i> {{localize "DXQL.Reward.NoLimit"}}</button>
+        <button type="button" class="{{#if draft.limited}}active{{/if}}" data-action="setLimited" data-limited="true"
+                role="radio" aria-checked="{{#if draft.limited}}true{{else}}false{{/if}}"><i class="fa-solid fa-hashtag" inert></i> {{localize "DXQL.Reward.Limited"}}</button>
+      </div>
+      {{#if draft.limited}}
+      <div class="dxql-uses-inputs">
+        <label>{{localize "DXQL.Reward.Field.MaxUses"}}
+          <input type="number" data-bind="draft.maxUses" value="{{draft.maxUses}}" min="1" max="{{maxUsesLimit}}" step="1"></label>
+        <label>{{localize "DXQL.Reward.Field.UsesLeft"}}
+          <input type="number" data-bind="draft.usesLeft" value="{{draft.usesLeft}}" min="0" max="{{maxUsesLimit}}" step="1"
+                 placeholder="{{localize "DXQL.Reward.Placeholder.UsesLeft"}}"></label>
+      </div>
+      <p class="dxql-hint">{{localize "DXQL.Reward.Hint.Uses"}}</p>
+      {{else}}
+      <p class="dxql-hint">{{localize "DXQL.Reward.Hint.NoLimit"}}</p>
+      {{/if}}
+    </div>
+
+    <div class="dxql-field wide">
+      <label for="{{appId}}-quest">{{localize "DXQL.Reward.Field.Quest"}}</label>
+      <select id="{{appId}}-quest" data-bind="draft.questId">
+        {{#each questOptions}}<option value="{{id}}" {{#if selected}}selected{{/if}}>{{label}}</option>{{/each}}
+      </select>
+    </div>
+
+    <div class="dxql-field wide dxql-places-field" data-drop="links">
+      <label for="{{appId}}-link">{{localize "DXQL.Reward.Field.Links"}}</label>
+      <div class="dxql-input-row">
+        <select class="dxql-link-type" data-bind="linkType" aria-label="{{localize "DXQL.Reward.LinkTypeLabel"}}">
+          {{#each linkTypes}}<option value="{{id}}" {{#if selected}}selected{{/if}}>{{label}}</option>{{/each}}
+        </select>
+        <input id="{{appId}}-link" type="text" data-bind="linkInput" value="{{linkInput}}" list="{{appId}}-links"
+               placeholder="{{localize "DXQL.Reward.Placeholder.Link"}}">
+        <button type="button" class="dxql-icon-btn" data-action="addLink" data-tooltip="DXQL.Add" aria-label="{{localize "DXQL.Add"}}">
+          <i class="fa-solid fa-plus" inert></i></button>
+      </div>
+      {{#if draft.linkList.length}}
+      <ul class="dxql-place-tokens">
+        {{#each draft.linkList}}
+        <li class="dxql-place dxql-link link-{{type}}">
+          <button type="button" class="dxql-place-btn" data-action="cycleLinkType" data-index="{{@index}}"
+                  data-tooltip="{{localize "DXQL.Reward.ChangeLinkType" type=label}}"><i class="{{icon}}" inert></i></button>
+          <span>{{name}}</span>{{#if uuid}}<i class="fa-solid fa-link dxql-linked" data-tooltip="DXQL.Reward.Linked" inert></i>{{/if}}
+          <button type="button" class="dxql-place-btn" data-action="removeLink" data-index="{{@index}}"
+                  data-tooltip="DXQL.Reward.RemoveLink" aria-label="{{localize "DXQL.Reward.RemoveLink"}}"><i class="fa-solid fa-xmark" inert></i></button>
+        </li>
+        {{/each}}
+      </ul>
+      {{/if}}
+      <p class="dxql-hint">{{localize "DXQL.Reward.Hint.Links"}}</p>
+    </div>
+
+    <div class="dxql-field wide">
+      <label for="{{appId}}-description">{{localize "DXQL.Field.Description"}}</label>
+      <textarea id="{{appId}}-description" data-bind="draft.description" data-drop="link" rows="5"
+                placeholder="{{localize "DXQL.Reward.Placeholder.Description"}}">{{draft.description}}</textarea>
+      <p class="dxql-hint">{{localize "DXQL.Hint.Links"}}</p>
+    </div>
+
+    {{#if isGM}}
+    <label class="dxql-checkbox">
+      <input type="checkbox" data-bind="draft.hidden" {{checked draft.hidden}}>
+      <i class="fa-solid fa-eye-slash" inert></i> {{localize "DXQL.HiddenFromPlayers"}}
+      <span class="dxql-hint">{{localize "DXQL.Reward.Hint.Hidden"}}</span>
+    </label>
+    {{/if}}
+
+    <footer class="dxql-edit-footer">
+      <button type="button" data-action="cancelEdit"><i class="fa-solid fa-xmark" inert></i> {{localize "Cancel"}}</button>
+      <button type="submit" class="dxql-primary" {{#if uploading}}disabled{{/if}}>
+        <i class="fa-solid fa-check" inert></i> {{#if isNew}}{{localize "DXQL.Reward.Create"}}{{else}}{{localize "DXQL.SaveChanges"}}{{/if}}
+      </button>
+    </footer>
+
+    <datalist id="{{appId}}-links">{{#each linkSuggestions}}<option value="{{this}}"></option>{{/each}}</datalist>
+  </form>
+{{else}}
+  {{!-- ============================ VIEW ============================ --}}
+  <header class="dxql-hero dxql-reward-hero reward-{{reward.status}}">
+    <div class="dxql-hero-bar">
+      <span class="dxql-status-badge reward-{{reward.status}}"><i class="{{reward.statusIcon}}" inert></i> {{reward.statusLabel}}</span>
+      {{#if reward.hidden}}<span class="dxql-badge dxql-badge-hidden"><i class="fa-solid fa-eye-slash" inert></i> {{localize "DXQL.HiddenFromPlayers"}}</span>{{/if}}
+      <div class="dxql-hero-actions">
+        {{#if (eq reward.status "active")}}
+        <button type="button" class="dxql-icon-btn" data-action="setClaimed" data-claimed="true" data-tooltip="DXQL.Reward.MarkClaimed"
+                aria-label="{{localize "DXQL.Reward.MarkClaimed"}}"><i class="fa-solid fa-box-archive" inert></i></button>
+        {{else}}
+        <button type="button" data-action="setClaimed" data-claimed="false">
+          <i class="fa-solid fa-box-open" inert></i> {{localize "DXQL.Reward.Restore"}}</button>
+        {{/if}}
+        <button type="button" class="dxql-icon-btn" data-action="edit" data-tooltip="DXQL.Reward.Edit" aria-label="{{localize "DXQL.Reward.Edit"}}">
+          <i class="fa-solid fa-pen" inert></i></button>
+        {{#if isGM}}
+        <button type="button" class="dxql-icon-btn" data-action="toggleHidden"
+                data-tooltip="{{#if reward.hidden}}DXQL.RevealToPlayers{{else}}DXQL.HideFromPlayers{{/if}}">
+          <i class="fa-solid {{#if reward.hidden}}fa-eye{{else}}fa-eye-slash{{/if}}" inert></i></button>
+        {{/if}}
+        {{#if canDeleteReward}}
+        <button type="button" class="dxql-icon-btn dxql-danger" data-action="deleteReward" data-tooltip="DXQL.Reward.Delete"
+                aria-label="{{localize "DXQL.Reward.Delete"}}"><i class="fa-solid fa-trash" inert></i></button>
+        {{/if}}
+      </div>
+    </div>
+
+    <div class="dxql-reward-heading">
+      {{#if reward.img}}<img class="dxql-reward-img" src="{{reward.img}}" alt="" data-action="viewImage" data-src="{{reward.img}}">{{/if}}
+      <h1 class="dxql-title">{{reward.name}}</h1>
+    </div>
+
+    <div class="dxql-uses-panel {{#if reward.unlimited}}unlimited{{/if}}">
+      {{#if reward.unlimited}}
+      <div class="dxql-uses-big"><i class="fa-solid fa-infinity" inert></i> {{usesLabel}}</div>
+      <p class="dxql-hint">{{localize "DXQL.Reward.Hint.NoLimit"}}</p>
+      {{else}}
+      <div class="dxql-uses-big">{{usesLabel}}</div>
+      {{#if pips}}<div class="dxql-pips large" aria-hidden="true">{{#each pips}}<i class="dxql-pip {{#if full}}full{{/if}}"></i>{{/each}}</div>{{/if}}
+      <div class="dxql-uses-actions">
+        {{#if canUse}}
+        <button type="button" class="dxql-primary" data-action="use"><i class="fa-solid fa-hand-sparkles" inert></i> {{localize "DXQL.Reward.UseOnce"}}</button>
+        {{/if}}
+        {{#if canUndo}}
+        <button type="button" data-action="undoUse" data-tooltip="DXQL.Reward.UndoUseHint"><i class="fa-solid fa-rotate-left" inert></i> {{localize "DXQL.Reward.UndoUse"}}</button>
+        <button type="button" data-action="refill" data-tooltip="DXQL.Reward.RefillHint"><i class="fa-solid fa-fill-drip" inert></i> {{localize "DXQL.Reward.Refill"}}</button>
+        {{/if}}
+      </div>
+      {{/if}}
+      {{#if claimedAt}}<p class="dxql-hint">{{localize "DXQL.Reward.ClaimedOn" date=claimedAt}}</p>{{/if}}
+    </div>
+
+    {{#if (or quest linkGroups.length)}}
+    <dl class="dxql-facts">
+      {{#if quest}}
+      <div class="dxql-fact dxql-places-fact">
+        <dt><i class="fa-solid fa-scroll" inert></i> <span>{{localize "DXQL.Reward.Field.Quest"}}</span></dt>
+        <dd><a data-action="openQuest" data-quest-id="{{quest.id}}">{{quest.title}}</a>{{#if quest.hidden}} <i class="fa-solid fa-eye-slash dxql-hidden-icon" data-tooltip="DXQL.HiddenFromPlayers"></i>{{/if}}</dd>
+      </div>
+      {{/if}}
+      {{#each linkGroups}}
+      <div class="dxql-fact dxql-places-fact">
+        <dt><i class="{{icon}}" inert></i> <span>{{label}}</span></dt>
+        <dd>
+          <ul class="dxql-place-list">
+            {{#each links}}
+            <li class="dxql-place">{{#if uuid}}<a data-action="openLink" data-uuid="{{uuid}}">{{name}}</a>{{else}}<span>{{name}}</span>{{/if}}</li>
+            {{/each}}
+          </ul>
+        </dd>
+      </div>
+      {{/each}}
+    </dl>
+    {{/if}}
+  </header>
+
+  {{#if descriptionHTML}}
+  <section class="dxql-section dxql-description">
+    <div class="dxql-rich">{{{descriptionHTML}}}</div>
+  </section>
+  {{/if}}
+
+  {{#if history.length}}
+  <section class="dxql-section dxql-reward-history">
+    <h3 class="dxql-section-title"><i class="fa-solid fa-clock-rotate-left" inert></i> {{localize "DXQL.Reward.History"}}
+      <span class="dxql-count">{{history.length}}</span></h3>
+    <ol>
+      {{#each history}}
+      <li><span class="dxql-author" style="--user-color: {{color}}">{{name}}</span> <time data-tooltip="{{fullDate}}">{{date}}</time></li>
+      {{/each}}
+    </ol>
+  </section>
+  {{/if}}
+
+  <footer class="dxql-meta-footer">
+    {{localize "DXQL.CreatedBy" name=createdBy date=createdAt}}
+  </footer>
+{{/if}}
+</div>

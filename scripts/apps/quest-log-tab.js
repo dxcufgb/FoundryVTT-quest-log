@@ -1,7 +1,10 @@
-import { MODULE_ID, TEMPLATE_PATH, STATUSES, STATUS_ICONS, t, tagHue, formatDate, escapeHTML } from "../util.js";
+import {
+  MODULE_ID, TEMPLATE_PATH, STATUSES, STATUS_ICONS, REWARD_STATUSES, REWARD_STATUS_ICONS, LINK_ICONS, t, tagHue, formatDate, escapeHTML
+} from "../util.js";
 import * as store from "../store.js";
-import { matchQuest, tokenize } from "../search.js";
+import { matchQuest, matchReward, tokenize } from "../search.js";
 import { QuestSheet } from "./quest-sheet.js";
+import { RewardSheet } from "./reward-sheet.js";
 import { exportQuests, importQuests } from "../transfer.js";
 
 const { HandlebarsApplicationMixin } = foundry.applications.api;
@@ -10,8 +13,13 @@ const { AbstractSidebarTab } = foundry.applications.sidebar;
 const TYPE_ICONS = { main: "fa-solid fa-crown", side: "fa-solid fa-compass", "": "fa-solid fa-circle-question" };
 
 export const GROUP_MODES = ["none", "questType", "chapter", "acquiredAt", "location", "giver", "tag"];
+export const REWARD_GROUP_MODES = ["none", "quest", "place", "npc", "faction", "other"];
+/** The two views of the tab. */
+export const VIEWS = ["quests", "rewards"];
+/** At most this many uses are drawn as pips; more show as a number only. */
+const MAX_PIPS = 10;
 
-/** The Quest Log tab in the right sidebar (and its pop-out). */
+/** The Quest Log tab in the right sidebar (and its pop-out): the quests, and the party's quest rewards. */
 export class QuestLogTab extends HandlebarsApplicationMixin(AbstractSidebarTab) {
   static tabName = "questlog";
 
@@ -27,34 +35,73 @@ export class QuestLogTab extends HandlebarsApplicationMixin(AbstractSidebarTab) 
       clearTag: QuestLogTab.#onClearTag,
       clearSearch: QuestLogTab.#onClearSearch,
       toggleQuestStatus: QuestLogTab.#onToggleQuestStatus,
+      setView: QuestLogTab.#onSetView,
+      createReward: QuestLogTab.#onCreateReward,
+      openReward: QuestLogTab.#onOpenReward,
+      useReward: QuestLogTab.#onUseReward,
       exportQuests: () => exportQuests(),
       importQuests: () => importQuests(null)
     }
   };
 
   static PARTS = {
+    nav: { template: `${TEMPLATE_PATH}/tab-nav.hbs` },
     header: { template: `${TEMPLATE_PATH}/tab-header.hbs` },
     filters: { template: `${TEMPLATE_PATH}/tab-filters.hbs` },
     list: { template: `${TEMPLATE_PATH}/tab-list.hbs`, scrollable: [""] }
   };
 
-  /** Free-text search, shared by the sidebar tab and its pop-out. */
+  /** The Quest Rewards view uses its own filters and list. */
+  static REWARD_PARTS = {
+    filters: `${TEMPLATE_PATH}/tab-reward-filters.hbs`,
+    list: `${TEMPLATE_PATH}/tab-reward-list.hbs`
+  };
+
+  /** Free-text search, shared by the sidebar tab and its pop-out (one for each view). */
   static search = "";
+  static rewardSearch = "";
   static tagFilter = null;
   static collapsed = new Set();
 
+  /** "quests" or "rewards" (shared by the tab and its pop-out). */
+  get view() {
+    const view = game.settings.get(MODULE_ID, "view");
+    return VIEWS.includes(view) ? view : "quests";
+  }
+
+  get rewardsView() {
+    return this.view === "rewards";
+  }
+
   get statusFilter() {
-    return game.settings.get(MODULE_ID, "statusFilter");
+    return game.settings.get(MODULE_ID, this.rewardsView ? "rewardStatusFilter" : "statusFilter");
   }
 
   get groupBy() {
-    return game.settings.get(MODULE_ID, "groupBy");
+    return game.settings.get(MODULE_ID, this.rewardsView ? "rewardGroupBy" : "groupBy");
+  }
+
+  static get currentSearch() {
+    return game.settings.get(MODULE_ID, "view") === "rewards" ? QuestLogTab.rewardSearch : QuestLogTab.search;
+  }
+
+  static set currentSearch(value) {
+    if (game.settings.get(MODULE_ID, "view") === "rewards") QuestLogTab.rewardSearch = value;
+    else QuestLogTab.search = value;
   }
 
   /** Re-renders the parts that depend on quest data (both the tab and its pop-out). */
   refresh() {
     if (!this.rendered) return;
-    this.render({ parts: ["filters", "list"] });
+    this.render({ parts: ["nav", "filters", "list"] });
+  }
+
+  _configureRenderParts(options) {
+    const parts = super._configureRenderParts(options);
+    if (this.rewardsView) {
+      for (const [id, template] of Object.entries(QuestLogTab.REWARD_PARTS)) if (parts[id]) parts[id] = { ...parts[id], template };
+    }
+    return parts;
   }
 
   /* -------------------------------------------- */
@@ -64,9 +111,29 @@ export class QuestLogTab extends HandlebarsApplicationMixin(AbstractSidebarTab) 
   async _prepareContext(options) {
     const context = await super._prepareContext(options);
     const ready = store.storesReady();
+    const quests = ready ? store.allQuests() : [];
+    const rewards = ready ? store.allRewards() : [];
+    const rewardsView = this.rewardsView;
+    Object.assign(context, {
+      ready,
+      isGM: game.user.isGM,
+      rewardsView,
+      views: VIEWS.map(id => ({
+        id,
+        label: t(id === "rewards" ? "Reward.Tab" : "QuestsTab"),
+        icon: id === "rewards" ? "fa-solid fa-gift" : "fa-solid fa-scroll",
+        count: id === "rewards" ? rewards.filter(r => r.status === "active").length : quests.filter(q => q.status === "active").length,
+        active: id === this.view
+      })),
+      search: rewardsView ? QuestLogTab.rewardSearch : QuestLogTab.search,
+      searchPlaceholder: t(rewardsView ? "Reward.SearchPlaceholder" : "SearchPlaceholder"),
+      searchLabel: t(rewardsView ? "Reward.Search" : "Search")
+    });
+    if (rewardsView) return this.#prepareRewards(context, quests, rewards);
+
     const terms = tokenize(QuestLogTab.search);
     const tag = QuestLogTab.tagFilter;
-    const all = ready ? store.allQuests() : [];
+    const all = quests;
 
     // Search and tag filter first, so the status counts show what the search found.
     const found = [];
@@ -81,9 +148,6 @@ export class QuestLogTab extends HandlebarsApplicationMixin(AbstractSidebarTab) 
     const shown = found.filter(f => status === "all" || f.quest.status === status);
 
     Object.assign(context, {
-      ready,
-      isGM: game.user.isGM,
-      search: QuestLogTab.search,
       searching: terms.length > 0 || !!tag,
       tagFilter: tag,
       tagHue: tag ? tagHue(tag) : 0,
@@ -176,6 +240,93 @@ export class QuestLogTab extends HandlebarsApplicationMixin(AbstractSidebarTab) 
   }
 
   /* -------------------------------------------- */
+  /*  Rewards                                     */
+  /* -------------------------------------------- */
+
+  #prepareRewards(context, quests, rewards) {
+    const terms = tokenize(QuestLogTab.rewardSearch);
+    const questTitles = new Map(quests.map(q => [q.id, q.title]));
+    const found = [];
+    for (const reward of rewards) {
+      const match = matchReward(reward, terms, questTitles.get(reward.questId));
+      if (match) found.push({ reward, snippet: match.snippet });
+    }
+    const counts = { all: found.length };
+    for (const s of REWARD_STATUSES) counts[s] = found.filter(f => f.reward.status === s).length;
+    const status = REWARD_STATUSES.includes(this.statusFilter) || this.statusFilter === "all" ? this.statusFilter : "active";
+    const shown = found.filter(f => status === "all" || f.reward.status === status);
+    return Object.assign(context, {
+      searching: terms.length > 0,
+      statusTabs: ["active", "claimed", "all"].map(s => ({
+        id: s, label: t(`Reward.Status.${s}`), count: counts[s], active: s === status
+      })),
+      groupBy: this.groupBy,
+      groupOptions: Object.fromEntries(REWARD_GROUP_MODES.map(g => [g, t(`Reward.GroupBy.${g}`)])),
+      groups: this.#groupRewards(shown, questTitles),
+      total: rewards.length,
+      emptyMessage: !rewards.length ? t("Reward.Empty") : terms.length ? t("Reward.NoMatches") : t(`Reward.EmptyStatus.${status}`)
+    });
+  }
+
+  #rewardCard(reward, snippet, questTitles) {
+    const pips = !reward.unlimited && reward.maxUses <= MAX_PIPS
+      ? Array.from({ length: reward.maxUses }, (_, i) => ({ full: i < reward.usesLeft }))
+      : null;
+    return {
+      id: reward.id,
+      name: reward.name,
+      img: reward.img,
+      status: reward.status,
+      statusIcon: REWARD_STATUS_ICONS[reward.status],
+      hidden: reward.hidden,
+      unlimited: reward.unlimited,
+      usesLeft: reward.usesLeft,
+      maxUses: reward.maxUses,
+      pips,
+      usesLabel: reward.unlimited ? t("Reward.Unlimited") : t("Reward.UsesLeft", { left: reward.usesLeft, max: reward.maxUses }),
+      claimedLabel: reward.usedUp ? t("Reward.UsedUp") : t("Reward.Claimed"),
+      canUse: reward.status === "active" && !reward.unlimited,
+      questTitle: questTitles.get(reward.questId) ?? "",
+      links: reward.links.map(l => ({ name: l.name, icon: LINK_ICONS[l.type], type: l.type, label: t(`Reward.LinkType.${l.type}`) })),
+      updated: formatDate(reward.updatedAt),
+      snippet
+    };
+  }
+
+  #groupRewards(entries, questTitles) {
+    entries.sort((a, b) => (REWARD_STATUSES.indexOf(a.reward.status) - REWARD_STATUSES.indexOf(b.reward.status))
+      || ((b.reward.claimedAt || b.reward.createdAt) - (a.reward.claimedAt || a.reward.createdAt)));
+    const mode = this.groupBy;
+    const card = e => this.#rewardCard(e.reward, e.snippet, questTitles);
+    if (mode === "none" || !REWARD_GROUP_MODES.includes(mode)) {
+      return entries.length ? [{ key: "all", label: null, rewards: entries.map(card) }] : [];
+    }
+    const groups = new Map();
+    const unknownKey = "\u0000unknown";
+    const add = (label, entry, key = null) => {
+      label = String(label ?? "").trim();
+      key ??= label ? label.toLowerCase() : unknownKey;
+      if (!groups.has(key)) groups.set(key, { key, label: label || t(`Reward.GroupUnknown.${mode}`), unknown: !label, rewards: [] });
+      groups.get(key).rewards.push(card(entry));
+    };
+    for (const entry of entries) {
+      if (mode === "quest") {
+        const title = questTitles.get(entry.reward.questId);
+        add(title, entry, title ? entry.reward.questId : null);
+        continue;
+      }
+      // A reward linked to several places (NPCs, factions …) shows up under each of them.
+      const names = entry.reward.links.filter(l => l.type === mode).map(l => l.name);
+      if (names.length) [...new Set(names)].forEach(n => add(n, entry));
+      else add("", entry);
+    }
+    const icon = mode === "quest" ? "fa-solid fa-scroll" : LINK_ICONS[mode];
+    return [...groups.values()]
+      .sort((a, b) => (a.unknown - b.unknown) || a.label.localeCompare(b.label, undefined, { numeric: true, sensitivity: "base" }))
+      .map(g => ({ ...g, icon, count: g.rewards.length, collapsed: QuestLogTab.collapsed.has(`rewards:${mode}:${g.key}`) }));
+  }
+
+  /* -------------------------------------------- */
   /*  Rendering                                   */
   /* -------------------------------------------- */
 
@@ -184,7 +335,7 @@ export class QuestLogTab extends HandlebarsApplicationMixin(AbstractSidebarTab) 
     const input = this.element.querySelector("input[name=search]");
     if (input && options.parts?.includes("header")) {
       input.addEventListener("input", foundry.utils.debounce(event => {
-        QuestLogTab.search = event.target.value;
+        QuestLogTab.currentSearch = event.target.value;
         this.#renderAllLists();
       }, 150));
       input.addEventListener("keydown", event => {
@@ -192,7 +343,7 @@ export class QuestLogTab extends HandlebarsApplicationMixin(AbstractSidebarTab) 
           event.preventDefault();
           event.stopPropagation();
           input.value = "";
-          QuestLogTab.search = "";
+          QuestLogTab.currentSearch = "";
           this.#renderAllLists();
         }
       });
@@ -200,13 +351,15 @@ export class QuestLogTab extends HandlebarsApplicationMixin(AbstractSidebarTab) 
     const select = this.element.querySelector("select[name=groupBy]");
     if (select && options.parts?.includes("filters")) {
       select.addEventListener("change", async event => {
-        await game.settings.set(MODULE_ID, "groupBy", event.target.value);
+        await game.settings.set(MODULE_ID, this.rewardsView ? "rewardGroupBy" : "groupBy", event.target.value);
         this.#renderAllLists();
       });
     }
     if (!this._dxqlMenu) {
       this._dxqlMenu = true;
-      new foundry.applications.ux.ContextMenu.implementation(this.element, ".dxql-quest[data-quest-id]", this.#questMenu(), {
+      const ContextMenu = foundry.applications.ux.ContextMenu.implementation;
+      new ContextMenu(this.element, ".dxql-quest[data-quest-id]", this.#questMenu(), { jQuery: false, fixed: true });
+      new ContextMenu(this.element, ".dxql-reward[data-reward-id]", RewardSheet.contextOptions(li => li.dataset.rewardId), {
         jQuery: false, fixed: true
       });
     }
@@ -214,10 +367,11 @@ export class QuestLogTab extends HandlebarsApplicationMixin(AbstractSidebarTab) 
 
   /** The tab and its pop-out keep the same search; re-render both lists. */
   #renderAllLists() {
+    const search = QuestLogTab.currentSearch;
     for (const app of [ui.questlog, ui.questlog?.popout]) {
       if (!app?.rendered) continue;
       const input = app.element.querySelector("input[name=search]");
-      if (app !== this && input && input.value !== QuestLogTab.search) input.value = QuestLogTab.search;
+      if (app !== this && input && input.value !== search) input.value = search;
       app.render({ parts: ["filters", "list"] });
     }
   }
@@ -288,12 +442,13 @@ export class QuestLogTab extends HandlebarsApplicationMixin(AbstractSidebarTab) 
   }
 
   static async #onSetStatusFilter(event, target) {
-    await game.settings.set(MODULE_ID, "statusFilter", target.dataset.status);
+    await game.settings.set(MODULE_ID, this.rewardsView ? "rewardStatusFilter" : "statusFilter", target.dataset.status);
     this.#renderAllLists();
   }
 
   static #onToggleGroup(event, target) {
-    const key = `${this.groupBy}:${target.closest("[data-group]").dataset.group}`;
+    const group = target.closest("[data-group]").dataset.group;
+    const key = this.rewardsView ? `rewards:${this.groupBy}:${group}` : `${this.groupBy}:${group}`;
     if (QuestLogTab.collapsed.has(key)) QuestLogTab.collapsed.delete(key);
     else QuestLogTab.collapsed.add(key);
     this.#renderAllLists();
@@ -312,8 +467,8 @@ export class QuestLogTab extends HandlebarsApplicationMixin(AbstractSidebarTab) 
   }
 
   static #onClearSearch() {
-    QuestLogTab.search = "";
-    QuestLogTab.tagFilter = null;
+    QuestLogTab.currentSearch = "";
+    if (!this.rewardsView) QuestLogTab.tagFilter = null;
     for (const app of [ui.questlog, ui.questlog?.popout]) {
       const input = app?.element?.querySelector("input[name=search]");
       if (input) input.value = "";
@@ -327,5 +482,33 @@ export class QuestLogTab extends HandlebarsApplicationMixin(AbstractSidebarTab) 
     const quest = id && store.getQuest(id);
     if (!quest) return;
     await store.setStatus(id, quest.status === "active" ? "completed" : "active");
+  }
+
+  /* Rewards */
+
+  /** Switches between the quests and the quest rewards (in the tab and its pop-out). */
+  static async #onSetView(event, target) {
+    const view = target.dataset.view;
+    if (!VIEWS.includes(view) || view === this.view) return;
+    await game.settings.set(MODULE_ID, "view", view);
+    for (const app of [ui.questlog, ui.questlog?.popout]) {
+      if (app?.rendered) app.render({ parts: ["nav", "header", "filters", "list"] });
+    }
+  }
+
+  static #onCreateReward() {
+    if (!store.storesReady()) return ui.notifications.warn(t("NotReady"));
+    RewardSheet.createNew();
+  }
+
+  static #onOpenReward(event, target) {
+    const id = target.closest("[data-reward-id]")?.dataset.rewardId;
+    if (id) RewardSheet.open(id, { highlight: QuestLogTab.rewardSearch });
+  }
+
+  static async #onUseReward(event, target) {
+    event.stopPropagation();
+    const id = target.closest("[data-reward-id]")?.dataset.rewardId;
+    if (id) await store.useReward(id);
   }
 }

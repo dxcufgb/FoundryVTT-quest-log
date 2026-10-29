@@ -501,6 +501,25 @@
     </ol>
   </section>
 
+  <section class="dxql-section dxql-related dxql-quest-rewards">
+    <h3 class="dxql-section-title"><i class="fa-solid fa-gift" inert></i> {{localize "DXQL.Reward.FromThisQuest"}}
+      {{#if rewards.length}}<span class="dxql-count">{{rewards.length}}</span>{{/if}}</h3>
+    {{#if rewards.length}}
+    <ul>
+      {{#each rewards}}
+      <li>
+        <a data-action="openReward" data-reward-id="{{id}}" class="reward-{{status}}"><i class="{{statusIcon}}" inert></i> {{name}}</a>
+        <span class="dxql-hint">{{usesLabel}}</span>
+        {{#if hidden}}<i class="fa-solid fa-eye-slash dxql-hidden-icon" data-tooltip="DXQL.HiddenFromPlayers"></i>{{/if}}
+      </li>
+      {{/each}}
+    </ul>
+    {{/if}}
+    <div class="dxql-stage-add">
+      <button type="button" data-action="addReward" data-tooltip="DXQL.Reward.AddFromQuestHint"><i class="fa-solid fa-gift" inert></i> {{localize "DXQL.Reward.AddFromQuest"}}</button>
+    </div>
+  </section>
+
   {{#if related.length}}
   <section class="dxql-section dxql-related">
     <h3 class="dxql-section-title"><i class="fa-solid fa-diagram-project" inert></i> {{localize "DXQL.RelatedQuests"}}</h3>

@@ -1,6 +1,7 @@
 import { MODULE_ID, STATUSES, t, escapeHTML, elementToText, htmlToText, imagesIn, cleanLine } from "./util.js";
 import * as store from "./store.js";
 import { QuestSheet } from "./apps/quest-sheet.js";
+import { RewardSheet } from "./apps/reward-sheet.js";
 
 const { DialogV2 } = foundry.applications.api;
 const NEW_QUEST = "__new";
@@ -145,6 +146,21 @@ function startQuestFrom({ text, images, source, title }) {
   QuestSheet.createNew({ title: title || firstLine(text), description: text + link, images });
 }
 
+/**
+ * Opens the new-reward form filled in from a piece of the game: the first line (or title) as the name, the text as the
+ * description with a link back to where it came from, and the first image.
+ */
+export function addAsReward({ text = "", images = [], source = null, title = "" } = {}) {
+  if (!store.storesReady()) return ui.notifications.warn(t("NotReady"));
+  const link = source?.uuid ? `${t("From")}: @UUID[${source.uuid}]{${String(source.label).replace(/[{}[\]]/g, "")}}` : "";
+  const body = String(text ?? "").trim().slice(0, MAX_TEXT);
+  return RewardSheet.createNew({
+    name: cleanLine(title, 120) || firstLine(body),
+    description: [body, link].filter(Boolean).join("\n\n"),
+    img: images[0] ?? ""
+  });
+}
+
 function firstLine(text) {
   const line = String(text ?? "").split(/\r?\n/).find(l => l.trim()) ?? "";
   return cleanLine(line, 60);
@@ -235,6 +251,7 @@ function sourceForElement(el) {
 /* -------------------------------------------- */
 
 const MENU_ICON = '<i class="fa-solid fa-scroll"></i>';
+const REWARD_ICON = '<i class="fa-solid fa-gift"></i>';
 
 export function registerContextMenus() {
   Hooks.on("getChatMessageContextOptions", (app, options) => {
@@ -254,6 +271,14 @@ export function registerContextMenus() {
         const message = game.messages.get(li.dataset.messageId);
         if (message) addToQuestLog({ ...fromChatMessage(message, li), type: "quest" });
       }
+    }, {
+      name: "DXQL.Ctx.AddReward",
+      icon: REWARD_ICON,
+      condition: li => store.storesReady() && !!game.messages.get(li.dataset.messageId),
+      callback: li => {
+        const message = game.messages.get(li.dataset.messageId);
+        if (message) addAsReward(fromChatMessage(message, li));
+      }
     });
   });
 
@@ -269,6 +294,9 @@ export function registerContextMenus() {
     }, {
       name: "DXQL.Ctx.NewQuestFrom", icon: '<i class="fa-solid fa-feather-pointed"></i>', condition: ok,
       callback: li => addToQuestLog({ ...fromJournalEntry(entry(li)), type: "quest" })
+    }, {
+      name: "DXQL.Ctx.AddReward", icon: REWARD_ICON, condition: ok,
+      callback: li => addAsReward(fromJournalEntry(entry(li)))
     });
   });
 
@@ -281,6 +309,24 @@ export function registerContextMenus() {
     }, {
       name: "DXQL.Ctx.NewQuestFrom", icon: '<i class="fa-solid fa-feather-pointed"></i>', condition: ok,
       callback: li => addToQuestLog({ ...fromJournalPage(page(li)), type: "quest" })
+    }, {
+      name: "DXQL.Ctx.AddReward", icon: REWARD_ICON, condition: ok,
+      callback: li => addAsReward(fromJournalPage(page(li)))
+    });
+  });
+
+  // Items directory: an item the party got becomes a reward (its name, image and a link to it).
+  Hooks.on("getItemContextOptions", (app, options) => {
+    const item = li => game.items.get(li.closest("[data-entry-id]")?.dataset.entryId);
+    options.push({
+      name: "DXQL.Ctx.AddReward", icon: REWARD_ICON,
+      condition: li => store.storesReady() && !!item(li)?.testUserPermission(game.user, "OBSERVER"),
+      callback: li => {
+        const doc = item(li);
+        if (!doc) return;
+        const img = doc.img && !doc.img.includes("icons/svg/") ? doc.img : "";
+        RewardSheet.createNew({ name: doc.name, img, description: `@UUID[${doc.uuid}]{${doc.name.replace(/[{}[\]]/g, "")}}` });
+      }
     });
   });
 
@@ -349,6 +395,7 @@ function showSelectionMenu(x, y, found) {
     { act: "clue", icon: "fa-solid fa-magnifying-glass", label: t("Ctx.SelectionClue") },
     { act: "objective", icon: "fa-solid fa-list-check", label: t("Ctx.SelectionObjective") },
     { act: "quest", icon: "fa-solid fa-feather-pointed", label: t("Ctx.SelectionQuest") },
+    { act: "reward", icon: "fa-solid fa-gift", label: t("Ctx.SelectionReward") },
     { sep: true },
     { act: "copy", icon: "fa-solid fa-copy", label: t("Ctx.Copy") }
   ];
@@ -371,6 +418,7 @@ function showSelectionMenu(x, y, found) {
       navigator.clipboard?.writeText(found.text).then(() => ui.notifications.info(t("Copied"))).catch(() => {});
       return;
     }
+    if (act === "reward") return addAsReward({ ...found, title: firstLine(found.text) });
     addToQuestLog({ ...found, type: act, title: firstLine(found.text) });
   });
   setTimeout(() => {

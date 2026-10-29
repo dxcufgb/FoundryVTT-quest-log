@@ -1,6 +1,6 @@
 import { MODULE_ID, t, escapeHTML, isResponsibleGM } from "./util.js";
-import { STORE_KINDS, getStore, getQuest, setHidden, setPartHidden } from "./store.js";
-import { parseExportData, sanitizeQuest, withoutHiddenParts } from "./transfer.js";
+import { STORE_KINDS, getStore, getQuest, setHidden, setPartHidden, getReward, setRewardHidden } from "./store.js";
+import { parseExportData, sanitizeQuest, sanitizeReward, withoutHiddenParts } from "./transfer.js";
 
 /*
  * Adventures and the quest log.
@@ -12,10 +12,12 @@ import { parseExportData, sanitizeQuest, withoutHiddenParts } from "./transfer.j
  *   - Journal text can link a quest with @Quest[id]{label}, or one stage, objective, note or clue of it with
  *     @Quest[id/stages/partId]{label} (objectives, notes the same way). For the GM a hidden quest's or part's link has a
  *     Reveal / Unhide button, so an adventure's text can say "unhide this now" right where it happens.
+ *   - @Reward[id]{label} links a quest reward the same way. Adventures can bring rewards too ("rewards" in questLog).
  */
 
 export const ADVENTURE_FLAG = "questLog";
 const FLAG_PATH = `flags.${MODULE_ID}.quests`;
+const REWARD_PATH = `flags.${MODULE_ID}.rewards`;
 const FORMAT = 1;
 
 /* -------------------------------------------- */
@@ -45,7 +47,9 @@ export async function consolidateStores({ newIds = new Set() } = {}) {
   if (!extras.length) return 0;
 
   const known = new Set(Object.values(keep).flatMap(j => Object.keys(j.getFlag(MODULE_ID, "quests") ?? {})));
+  const knownRewards = new Set(Object.values(keep).flatMap(j => Object.keys(j.getFlag(MODULE_ID, "rewards") ?? {})));
   const maps = { shared: {}, secret: {} };
+  const rewardMaps = { shared: {}, secret: {} };
   let moved = 0;
   for (const { kind, doc } of extras) {
     for (const [id, quest] of Object.entries(doc.getFlag(MODULE_ID, "quests") ?? {})) {
@@ -56,9 +60,19 @@ export async function consolidateStores({ newIds = new Set() } = {}) {
       maps[kind][id] = clean;
       moved++;
     }
+    for (const [id, reward] of Object.entries(doc.getFlag(MODULE_ID, "rewards") ?? {})) {
+      if (knownRewards.has(id)) continue;
+      const clean = sanitizeReward(reward);
+      if (!clean) continue;
+      knownRewards.add(id);
+      rewardMaps[kind][id] = clean;
+    }
   }
   for (const kind of STORE_KINDS) {
-    if (Object.keys(maps[kind]).length) await keep[kind].update({ [FLAG_PATH]: maps[kind] }, { [MODULE_ID]: { type: "imported" } });
+    const update = {};
+    if (Object.keys(maps[kind]).length) update[FLAG_PATH] = maps[kind];
+    if (Object.keys(rewardMaps[kind]).length) update[REWARD_PATH] = rewardMaps[kind];
+    if (Object.keys(update).length) await keep[kind].update(update, { [MODULE_ID]: { type: "imported" } });
   }
   await JournalEntry.implementation.deleteDocuments(extras.map(e => e.doc.id));
   console.log(`${MODULE_ID} | merged ${extras.length} duplicate quest log journal(s), ${moved} quest(s) moved`);
@@ -120,9 +134,22 @@ export async function importAdventureQuests(adventure, { notify = true } = {}) {
     result.added++;
     if (hidden) result.hidden++;
   });
+  // Rewards the adventure brings: also hidden unless marked visible, never replacing one already in the log.
+  const knownRewards = new Set(STORE_KINDS.flatMap(kind => Object.keys(stores[kind].getFlag(MODULE_ID, "rewards") ?? {})));
+  const rewardMaps = { shared: {}, secret: {} };
+  for (const { id, hidden, reward } of parsed.rewards) {
+    if (knownRewards.has(id)) continue;
+    // A reward from a hidden quest stays hidden with it.
+    const secret = hidden || !!maps.secret[reward.questId] || !!stores.secret.getFlag(MODULE_ID, "quests")?.[reward.questId];
+    reward.createdAt = now;
+    rewardMaps[secret ? "secret" : "shared"][id] = reward;
+  }
   const options = { [MODULE_ID]: { type: "imported" } };
   for (const kind of STORE_KINDS) {
-    if (Object.keys(maps[kind]).length) await stores[kind].update({ [FLAG_PATH]: maps[kind] }, options);
+    const update = {};
+    if (Object.keys(maps[kind]).length) update[FLAG_PATH] = maps[kind];
+    if (Object.keys(rewardMaps[kind]).length) update[REWARD_PATH] = rewardMaps[kind];
+    if (Object.keys(update).length) await stores[kind].update(update, options);
   }
   if (notify) {
     const title = escapeHTML(adventure.name);
@@ -150,8 +177,16 @@ export async function storeInAdventure(adventure, { includeHidden = true } = {})
       quests.push(includeHidden ? copy : withoutHiddenParts(copy));
     }
   }
-  if (!quests.length) return ui.notifications.warn(t("Transfer.NothingToExport"));
-  const data = { module: MODULE_ID, format: FORMAT, version: game.modules.get(MODULE_ID)?.version ?? null, quests };
+  const rewards = [];
+  for (const kind of STORE_KINDS) {
+    const hidden = kind === "secret";
+    if (hidden && !includeHidden) continue;
+    for (const [id, reward] of Object.entries(getStore(kind)?.getFlag(MODULE_ID, "rewards") ?? {})) {
+      if (reward && typeof reward === "object") rewards.push({ id, hidden, ...foundry.utils.deepClone(reward) });
+    }
+  }
+  if (!quests.length && !rewards.length) return ui.notifications.warn(t("Transfer.NothingToExport"));
+  const data = { module: MODULE_ID, format: FORMAT, version: game.modules.get(MODULE_ID)?.version ?? null, quests, rewards };
   try {
     await adventure.update({ [`flags.${MODULE_ID}.${ADVENTURE_FLAG}`]: data });
   } catch (err) {
@@ -236,9 +271,62 @@ async function onLinkClick(event) {
   game.modules.get(MODULE_ID)?.api?.openQuest(id);
 }
 
+/* @Reward[id]{label} */
+
+const REWARD_LINK_PATTERN = /@Reward\[([A-Za-z0-9]{1,32})\](?:\{([^}]*)\})?/g;
+
+function rewardLink(match) {
+  const [, id, label] = match;
+  const reward = getReward(id);
+  const text = label || reward?.name || t("Reward.LinkUnknown");
+  if (!reward && !game.user.isGM) {
+    const span = document.createElement("span");
+    span.classList.add("dxql-quest-link", "dxql-reward-link", "dxql-missing");
+    span.textContent = text;
+    return span;
+  }
+  const a = document.createElement("a");
+  a.classList.add("dxql-quest-link", "dxql-reward-link");
+  a.dataset.rewardId = id;
+  a.innerHTML = `<i class="fa-solid fa-gift" inert></i> ${escapeHTML(text)}`;
+  if (!reward) {
+    a.classList.add("dxql-missing");
+    a.dataset.tooltip = t("Reward.LinkNotInLog");
+  } else if (reward.hidden) {
+    a.classList.add("dxql-hidden");
+    a.dataset.tooltip = t("QuestLink.Hidden");
+    a.insertAdjacentHTML("beforeend",
+      `<span class="dxql-reveal" data-dxql-reveal><i class="fa-solid fa-eye" inert></i> ${escapeHTML(t("QuestLink.Reveal"))}</span>`);
+  }
+  return a;
+}
+
+async function onRewardLinkClick(event) {
+  const link = event.target.closest?.("a.dxql-reward-link[data-reward-id]");
+  if (!link) return;
+  event.preventDefault();
+  event.stopPropagation();
+  const id = link.dataset.rewardId;
+  const reward = getReward(id);
+  if (!reward) return ui.notifications.warn(t(game.user.isGM ? "Reward.LinkNotInLog" : "Reward.LinkUnavailable"));
+  if (event.target.closest("[data-dxql-reveal]")) {
+    if (reward.hidden) await setRewardHidden(id, false);
+    if (getReward(id)?.hidden) return;
+    for (const el of document.querySelectorAll(`.dxql-reward-link[data-reward-id="${id}"]`)) {
+      el.classList.remove("dxql-hidden");
+      delete el.dataset.tooltip;
+      el.querySelector("[data-dxql-reveal]")?.remove();
+    }
+    return;
+  }
+  game.modules.get(MODULE_ID)?.api?.openReward(id);
+}
+
 export function registerQuestLinks() {
   CONFIG.TextEditor.enrichers.push({ id: "dxqlQuest", pattern: LINK_PATTERN, enricher: async match => questLink(match) });
+  CONFIG.TextEditor.enrichers.push({ id: "dxqlReward", pattern: REWARD_LINK_PATTERN, enricher: async match => rewardLink(match) });
   document.addEventListener("click", event => onLinkClick(event).catch(err => console.error(`${MODULE_ID} | quest link`, err)));
+  document.addEventListener("click", event => onRewardLinkClick(event).catch(err => console.error(`${MODULE_ID} | reward link`, err)));
 }
 
 /* -------------------------------------------- */

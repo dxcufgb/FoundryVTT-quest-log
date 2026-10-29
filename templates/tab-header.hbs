@@ -1,10 +1,16 @@
 <header class="dxql-tab-header">
   <div class="dxql-search">
     <i class="fa-solid fa-magnifying-glass" inert></i>
-    <input type="search" name="search" value="{{search}}" placeholder="{{localize "DXQL.SearchPlaceholder"}}"
-           aria-label="{{localize "DXQL.Search"}}" autocomplete="off">
+    <input type="search" name="search" value="{{search}}" placeholder="{{searchPlaceholder}}"
+           aria-label="{{searchLabel}}" autocomplete="off">
   </div>
+  {{#if rewardsView}}
+  <button type="button" class="dxql-new-quest" data-action="createReward" data-tooltip="DXQL.Reward.NewHint">
+    <i class="fa-solid fa-plus" inert></i> {{localize "DXQL.Reward.New"}}
+  </button>
+  {{else}}
   <button type="button" class="dxql-new-quest" data-action="createQuest" data-tooltip="DXQL.NewQuestHint">
     <i class="fa-solid fa-plus" inert></i> {{localize "DXQL.NewQuest"}}
   </button>
+  {{/if}}
 </header>

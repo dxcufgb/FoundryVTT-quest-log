@@ -25,6 +25,21 @@ function fields(quest) {
   return out;
 }
 
+/** The searchable parts of a reward. questTitle: the title of the quest it came from (if the user can see it). */
+function rewardFields(reward, questTitle) {
+  return [
+    { label: t("Reward.Field.Name"), text: reward.name },
+    { label: t("Reward.Field.Quest"), text: questTitle ?? "" },
+    { label: t("Reward.Field.Links"), text: reward.links.map(l => l.name).join(", ") },
+    { label: t("Field.Description"), text: plainText(reward.description) }
+  ];
+}
+
+/** Like matchQuest, for a reward. */
+export function matchReward(reward, terms, questTitle = "") {
+  return matchParts(rewardFields(reward, questTitle), reward.name, terms);
+}
+
 export function tokenize(query) {
   return String(query ?? "").toLowerCase().split(/\s+/).map(s => s.trim()).filter(Boolean);
 }
@@ -34,13 +49,17 @@ export function tokenize(query) {
  * description, objectives, notes, clues or note authors). Returns null, or {snippet} where snippet is HTML.
  */
 export function matchQuest(quest, terms) {
+  return matchParts(fields(quest), quest.title, terms);
+}
+
+/** Every term must appear in one of the parts (the first part is the title). */
+function matchParts(parts, title, terms) {
   if (!terms.length) return { snippet: "" };
-  const parts = fields(quest);
   const haystack = parts.map(p => `${p.text} ${p.author ?? ""}`).join("\n").toLowerCase();
   if (!terms.every(term => haystack.includes(term))) return null;
 
   // The title already shows; show where else the first matching word was found.
-  if (terms.every(term => quest.title.toLowerCase().includes(term))) return { snippet: "" };
+  if (terms.every(term => title.toLowerCase().includes(term))) return { snippet: "" };
   let best = null;
   let bestCount = 0;
   for (const part of parts.slice(1)) {
