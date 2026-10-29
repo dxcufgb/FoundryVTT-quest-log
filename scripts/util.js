@@ -25,6 +25,45 @@ export const LINK_ICONS = {
   faction: "fa-solid fa-flag",
   other: "fa-solid fa-link"
 };
+/**
+ * Dxcufgb's Familiar Faces & Places: when it is active, an NPC, place or faction named in a quest, reward or note links to
+ * its page there. Looked up by name each time a sheet is shown (nothing is stored), with that module's own visibility.
+ */
+export const FACES_ID = "dxcufgbs-familiar-faces";
+/** The Familiar Faces & Places list a link type is looked up in, and that module's API functions to find / open one. */
+const FACES_KINDS = { npc: "faces", place: "places", faction: "factions" };
+const FACES_FIND = { faces: "findByName", places: "findPlaceByName", factions: "findFactionByName" };
+const FACES_OPEN = { faces: "openFace", places: "openPlace", factions: "openFaction" };
+
+function facesApi() {
+  const mod = game.modules.get(FACES_ID);
+  return mod?.active ? mod.api ?? null : null;
+}
+
+/**
+ * The Familiar Faces & Places NPC, place or faction with this name that the user can see, as {kind, id}, or null.
+ * Factions came in its 1.2.0; with an older version (no findFactionByName) factions aren't linked.
+ */
+export function facesEntry(type, name) {
+  const api = facesApi();
+  const kind = FACES_KINDS[type];
+  const find = api?.[FACES_FIND[kind]];
+  if (typeof find !== "function" || !name) return null;
+  try {
+    const entry = find(name);
+    return entry?.id ? { kind, id: entry.id } : null;
+  } catch (err) {
+    console.error(`${MODULE_ID} | ${FACES_ID} lookup`, err);
+    return null;
+  }
+}
+
+/** Opens a Familiar Faces & Places page ({kind, id} from facesEntry, or a link's data-faces-kind / data-faces-id). */
+export function openFacesEntry(kind, id) {
+  const open = facesApi()?.[FACES_OPEN[kind]];
+  if (typeof open === "function" && id) return open(id);
+}
+
 export const REWARD_STATUS_ICONS = {
   active: "fa-solid fa-gift",
   claimed: "fa-solid fa-box-archive"

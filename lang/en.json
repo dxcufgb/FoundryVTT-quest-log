@@ -92,6 +92,7 @@
     "QuestGone": "This quest has been deleted.",
     "SourceGone": "The original message or journal entry no longer exists.",
     "NoAccess": "You don't have access to that.",
+    "OpenInFaces": "Open in Familiar Faces & Places",
     "ObjectivesDone": "{done} of {total} objectives done",
     "MarkObjectiveDone": "Mark done",
     "MarkObjectiveOpen": "Mark not done",

@@ -1,6 +1,6 @@
 import {
   MODULE_ID, TEMPLATE_PATH, STATUS_ICONS, NOTE_ICONS, REWARD_STATUS_ICONS, HIDEABLE_FIELDS, QUEST_TYPES, t, cleanLine, tagHue, cleanTag, enrich, formatDate, userInfo,
-  locationSuggestions, currentSceneName, getDropData, linkForDrop, insertAtCursor, randomId, escapeHTML
+  locationSuggestions, currentSceneName, getDropData, linkForDrop, insertAtCursor, randomId, escapeHTML, facesEntry, openFacesEntry
 } from "../util.js";
 import * as store from "../store.js";
 import { tokenize, markTerms } from "../search.js";
@@ -54,6 +54,7 @@ export class QuestSheet extends HandlebarsApplicationMixin(ApplicationV2) {
       toggleHidden: QuestSheet.#onToggleHidden,
       deleteQuest: QuestSheet.#onDeleteQuest,
       openGiver: QuestSheet.#onOpenGiver,
+      openFacesEntry: QuestSheet.#onOpenFacesEntry,
       addObjective: QuestSheet.#onAddObjective,
       addStage: QuestSheet.#onAddStage,
       editStage: QuestSheet.#onEditStage,
@@ -336,8 +337,11 @@ export class QuestSheet extends HandlebarsApplicationMixin(ApplicationV2) {
         ...quest,
         statusIcon: STATUS_ICONS[quest.status],
         statusLabel: t(`Status.${quest.status}`),
-        tagList: quest.tags.map(name => ({ name, hue: tagHue(name) }))
+        tagList: quest.tags.map(name => ({ name, hue: tagHue(name) })),
+        locations: quest.locations.map(l => ({ ...l, faces: facesEntry("place", l.name) }))
       },
+      giverFaces: facesEntry("npc", quest.giver),
+      acquiredAtFaces: facesEntry("place", quest.acquiredAt),
       canDeleteQuest: store.canDelete(quest.createdBy),
       secret,
       hiddenParts,
@@ -777,6 +781,10 @@ export class QuestSheet extends HandlebarsApplicationMixin(ApplicationV2) {
     const doc = await fromUuid(this.quest?.giverUuid ?? "").catch(() => null);
     if (doc?.testUserPermission(game.user, "LIMITED")) doc.sheet.render({ force: true });
     else ui.notifications.info(t("NoAccess"));
+  }
+
+  static #onOpenFacesEntry(event, target) {
+    openFacesEntry(target.dataset.facesKind, target.dataset.facesId);
   }
 
   /* -------------------------------------------- */

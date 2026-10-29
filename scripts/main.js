@@ -1,4 +1,4 @@
-import { MODULE_ID, t, escapeHTML, isResponsibleGM } from "./util.js";
+import { MODULE_ID, FACES_ID, t, escapeHTML, isResponsibleGM } from "./util.js";
 import * as store from "./store.js";
 import { QuestLogTab, GROUP_MODES, REWARD_GROUP_MODES, NOTE_GROUP_MODES, NOTE_FILTERS, VIEWS } from "./apps/quest-log-tab.js";
 import { QuestSheet } from "./apps/quest-sheet.js";
@@ -326,6 +326,27 @@ Hooks.on("updateJournalEntry", (doc, changes, options, userId) => {
     console.error(`${MODULE_ID} | updateJournalEntry`, err);
   }
 });
+
+// NPCs, places and factions in Dxcufgb's Familiar Faces & Places are linked by name from the open sheets: refresh
+// their links when someone adds, renames or removes one there (its entries are flags on its own store journals).
+let facesRefresh = null;
+function onFacesChange(doc, changes) {
+  try {
+    if (!game.modules.get(FACES_ID)?.active || !doc.flags?.[FACES_ID]) return;
+    const flags = changes?.flags?.[FACES_ID];
+    if (changes && !(flags && Object.keys(flags).some(k => /^(-=)?(faces|places|factions)$/.test(k)))) return;
+    clearTimeout(facesRefresh);
+    facesRefresh = setTimeout(() => {
+      QuestSheet.refreshAll();
+      RewardSheet.refreshAll();
+      PartyNoteSheet.refreshAll();
+    }, 250);
+  } catch (err) {
+    console.error(`${MODULE_ID} | ${FACES_ID} change`, err);
+  }
+}
+Hooks.on("updateJournalEntry", onFacesChange);
+for (const hook of ["createJournalEntry", "deleteJournalEntry"]) Hooks.on(hook, doc => onFacesChange(doc, null));
 
 // Keep the two storage journals out of the Journal directory; they're managed from the Quest Log tab.
 Hooks.on("renderJournalDirectory", (app, html) => {
