@@ -15,6 +15,8 @@ function fields(quest) {
   ];
   for (const s of quest.stages ?? []) out.push({ label: t("Stage"), text: [s.title, plainText(s.text)].filter(Boolean).join(" — ") });
   for (const o of quest.objectives) out.push({ label: t("Field.Objective"), text: o.text });
+  for (const i of quest.items ?? []) out.push({ label: t("Field.Item"), text: i.name });
+  for (const n of quest.npcs ?? []) out.push({ label: t("Field.Npc"), text: n.name });
   for (const n of quest.notes) {
     out.push({
       label: n.type === "clue" ? t("Clue") : t("Note"),

@@ -1,6 +1,7 @@
 import {
   MODULE_ID, STATUSES, NOTE_TYPES, HIDEABLE_FIELDS, PART_KINDS, QUEST_TYPES, LINK_TYPES, MAX_USES, t, isResponsibleGM, randomId, cleanLine, cleanTag
 } from "./util.js";
+import { newMentions, mentionedFaces, partyKnows } from "./npcs.js";
 
 /*
  * Quests live in the flags of two journal entries that the module creates and hides from the Journal directory:
@@ -117,6 +118,17 @@ export function normalizeQuest(id, raw, hidden, { forGM = game.user.isGM } = {})
   const gallery = sortedEntries(raw.gallery).filter(g => g.src).filter(visible).map(g => ({
     id: g.id, src: g.src, hidden: !!g.hidden, createdBy: g.createdBy ?? null, createdAt: g.createdAt ?? 0
   }));
+  // Items the quest needs: a name, optionally linked to an Item document (uuid, img), ticked when the party has it.
+  const items = sortedEntries(raw.items).filter(i => cleanLine(i.name, 120)).filter(visible).map(i => ({
+    id: i.id, name: cleanLine(i.name, 120), uuid: i.uuid ?? "", img: i.img ?? "", have: !!i.have, hidden: !!i.hidden,
+    sort: i.sort ?? 0, createdBy: i.createdBy ?? null, createdAt: i.createdAt ?? 0, authorName: i.authorName ?? null
+  }));
+  // Related NPCs: a name, optionally a Familiar Faces & Places NPC (faceId) and/or an actor (uuid, img). auto: added
+  // because an objective or stage mentions the NPC.
+  const npcs = sortedEntries(raw.npcs).filter(n => cleanLine(n.name, 80)).filter(visible).map(n => ({
+    id: n.id, name: cleanLine(n.name, 80), faceId: n.faceId ?? "", uuid: n.uuid ?? "", img: n.img ?? "", auto: !!n.auto,
+    hidden: !!n.hidden, sort: n.sort ?? 0, createdBy: n.createdBy ?? null, createdAt: n.createdAt ?? 0, authorName: n.authorName ?? null
+  }));
   const field = (key, value) => (isFieldHidden(key) ? "" : String(value ?? ""));
   const locations = locationsOf(raw).filter(visible);
   return {
@@ -142,6 +154,8 @@ export function normalizeQuest(id, raw, hidden, { forGM = game.user.isGM } = {})
     objectives,
     notes,
     gallery,
+    items,
+    npcs,
     createdBy: raw.createdBy ?? null,
     authorName: raw.authorName ?? null,
     createdAt: raw.createdAt ?? 0,
@@ -286,7 +300,7 @@ export async function createQuest(data = {}, { hidden = false } = {}) {
   const now = Date.now();
   const quest = {
     title: "", description: "", giver: "", giverImg: "", giverUuid: "", acquiredAt: "", location: "", reward: "",
-    chapter: "", questType: "", tags: [], locations: {}, stages: {}, objectives: {}, notes: {}, gallery: {},
+    chapter: "", questType: "", tags: [], locations: {}, stages: {}, objectives: {}, notes: {}, gallery: {}, items: {}, npcs: {},
     ...questFields(data),
     status: "active",
     createdBy: game.user.id,
@@ -299,6 +313,7 @@ export async function createQuest(data = {}, { hidden = false } = {}) {
     const oid = randomId();
     quest.objectives[oid] = { text: cleanLine(text, 300), done: false, hidden: gmHidden, sort: now + Object.keys(quest.objectives).length, createdBy: game.user.id, createdAt: now };
   }
+  Object.assign(quest.npcs, mentionedNpcs(quest, (data.objectives ?? []).join("\n"), "", gmHidden));
   for (const src of data.images ?? []) {
     const gid = randomId();
     quest.gallery[gid] = { src, createdBy: game.user.id, createdAt: now, sort: now + Object.keys(quest.gallery).length };
@@ -321,7 +336,13 @@ export async function setPartHidden(id, kind, partId, hidden) {
   const part = raw?.[kind]?.[partId];
   if (!part || !!part.hidden === !!hidden) return;
   const event = hidden ? null : { type: `revealed-${kind}`, noteType: part.type ?? null, title: raw.title };
-  return patch(id, { [kind]: { [partId]: { hidden: !!hidden } } }, event);
+  // The GM's own eye button on an NPC decides from now on: revealing a text no longer changes it.
+  const update = { [kind]: { [partId]: kind === "npcs" ? { hidden: !!hidden, autoHidden: false } : { hidden: !!hidden } } };
+  if (!hidden && (kind === "objectives" || kind === "stages")) {
+    const npcs = npcsRevealedWith(raw, kind, partId);
+    if (Object.keys(npcs).length) update.npcs = npcs;
+  }
+  return patch(id, update, event);
 }
 
 /**
@@ -414,21 +435,32 @@ export async function addObjective(id, text, { hidden = false, stage = null } = 
   const oid = randomId();
   const now = Date.now();
   const secret = !!(hidden && game.user.isGM);
-  const stages = rawQuest(id)?.raw?.stages ?? {};
+  const raw = rawQuest(id)?.raw;
+  const stages = raw?.stages ?? {};
   const stageId = stage && stages[stage] ? stage : null;
-  await patch(id, { objectives: { [oid]: { text: clean, done: false, hidden: secret, stage: stageId, sort: now, createdBy: game.user.id, createdAt: now } } },
-    { type: "objective-added" });
+  const npcs = mentionedNpcs(raw, clean, "", secret || !!stages[stageId]?.hidden);
+  await patch(id, {
+    objectives: { [oid]: { text: clean, done: false, hidden: secret, stage: stageId, sort: now, createdBy: game.user.id, createdAt: now } },
+    ...(Object.keys(npcs).length ? { npcs } : {})
+  }, { type: "objective-added" });
   return oid;
 }
 
 export async function updateObjective(id, oid, data) {
   const change = {};
-  if ("text" in data) change.text = cleanLine(data.text, 300);
+  const update = { objectives: { [oid]: change } };
+  if ("text" in data) {
+    change.text = cleanLine(data.text, 300);
+    const raw = rawQuest(id)?.raw;
+    const old = raw?.objectives?.[oid];
+    const npcs = mentionedNpcs(raw, change.text, old?.text, !!old?.hidden || !!raw?.stages?.[old?.stage]?.hidden);
+    if (Object.keys(npcs).length) update.npcs = npcs;
+  }
   if ("done" in data) {
     change.done = !!data.done;
     change.doneBy = data.done ? game.user.id : null;
   }
-  return patch(id, { objectives: { [oid]: change } });
+  return patch(id, update);
 }
 
 export async function deleteObjective(id, oid) {
@@ -456,8 +488,12 @@ export async function addStage(id, { title = "", text = "", hidden = false } = {
   if (!clean) return null;
   const sid = randomId();
   const now = Date.now();
+  const body = String(text ?? "").trim();
+  const secret = !!(hidden && game.user.isGM);
+  const npcs = mentionedNpcs(rawQuest(id)?.raw, `${clean}\n${body}`, "", secret);
   await patch(id, {
-    stages: { [sid]: { title: clean, text: String(text ?? "").trim(), hidden: !!(hidden && game.user.isGM), sort: now, createdBy: game.user.id, createdAt: now } }
+    stages: { [sid]: { title: clean, text: body, hidden: secret, sort: now, createdBy: game.user.id, createdAt: now } },
+    ...(Object.keys(npcs).length ? { npcs } : {})
   }, { type: "stage-added" });
   return sid;
 }
@@ -467,7 +503,14 @@ export async function updateStage(id, sid, data) {
   if ("title" in data) change.title = cleanLine(data.title, 120);
   if ("text" in data) change.text = String(data.text ?? "").trim();
   if (!Object.keys(change).length) return;
-  return patch(id, { stages: { [sid]: change } });
+  const raw = rawQuest(id)?.raw;
+  const old = raw?.stages?.[sid];
+  const update = { stages: { [sid]: change } };
+  const before = `${old?.title ?? ""}\n${old?.text ?? ""}`;
+  const after = `${change.title ?? old?.title ?? ""}\n${change.text ?? old?.text ?? ""}`;
+  const npcs = mentionedNpcs(raw, after, before, !!old?.hidden);
+  if (Object.keys(npcs).length) update.npcs = npcs;
+  return patch(id, update);
 }
 
 /** Deletes a stage. Its objectives stay, without a stage; those of a hidden stage stay hidden. */
@@ -480,6 +523,130 @@ export async function deleteStage(id, sid) {
     if (o?.stage === sid) objectives[oid] = stage.hidden ? { stage: null, hidden: true } : { stage: null };
   }
   return patch(id, { stages: { [`-=${sid}`]: null }, objectives });
+}
+
+/* Items the quest needs */
+
+/** Adds an item the quest needs. uuid / img: a linked Item document (dropped on the list). */
+export async function addItem(id, { name = "", uuid = "", img = "", hidden = false } = {}) {
+  const clean = cleanLine(name, 120);
+  if (!clean) return null;
+  const iid = randomId();
+  const now = Date.now();
+  await patch(id, {
+    items: {
+      [iid]: {
+        name: clean, uuid: String(uuid ?? "").slice(0, 200), img: String(img ?? "").slice(0, 500), have: false,
+        hidden: !!(hidden && game.user.isGM), sort: now, createdBy: game.user.id, createdAt: now
+      }
+    }
+  }, { type: "item-added" });
+  return iid;
+}
+
+export async function updateItem(id, iid, data) {
+  const change = {};
+  if ("name" in data) {
+    change.name = cleanLine(data.name, 120);
+    if (!change.name) return;
+  }
+  if ("have" in data) change.have = !!data.have;
+  if (!Object.keys(change).length) return;
+  return patch(id, { items: { [iid]: change } });
+}
+
+export async function deleteItem(id, iid) {
+  return patch(id, { items: { [`-=${iid}`]: null } });
+}
+
+/* Related NPCs */
+
+/** The npcs entry for a Familiar Faces & Places NPC, an actor, or just a name. */
+function npcEntry({ name, faceId = "", uuid = "", img = "", hidden = false, auto = false }, sort) {
+  const now = Date.now();
+  const secret = !!(hidden && game.user.isGM);
+  return {
+    name: cleanLine(name, 80), faceId: String(faceId ?? "").slice(0, 32), uuid: String(uuid ?? "").slice(0, 200),
+    img: String(img ?? "").slice(0, 500), auto: !!auto, hidden: secret,
+    // Hidden because of where it was mentioned (not by the GM's eye button): revealing that text reveals it.
+    autoHidden: !!(auto && secret),
+    sort: sort ?? now, createdBy: game.user.id, createdAt: now
+  };
+}
+
+/**
+ * Whether the quest already lists this NPC (same Familiar Faces & Places NPC, or the same name). For players only the
+ * NPCs they can see count, so a hidden NPC never shows by blocking theirs.
+ */
+function hasNpc(raw, { faceId, name }) {
+  const key = cleanLine(name, 80).toLowerCase();
+  return Object.values(raw?.npcs ?? {}).some(n => n && (game.user.isGM || !n.hidden)
+    && ((faceId && n.faceId === faceId) || cleanLine(n.name, 80).toLowerCase() === key));
+}
+
+/**
+ * New Related NPCs entries for the NPCs a text newly mentions (see npcs.js): {[id]: entry}. hidden: the text is hidden
+ * from players (a hidden objective or stage), so the NPCs it brings in are hidden too. NPCs only some players know
+ * (linked with @NPC) are added hidden when the GM links them, and not at all when a player does: a player can't hide
+ * them, and the rest of the party mustn't learn of them from the list.
+ */
+function mentionedNpcs(raw, text, oldText, hidden) {
+  const out = {};
+  const added = [];
+  let sort = Date.now();
+  try {
+    for (const { face } of oldText ? newMentions(text, oldText) : mentionedFaces(text)) {
+      const npc = { faceId: face.id, name: face.name };
+      if (hasNpc(raw, npc) || added.some(a => a.faceId === face.id)) continue;
+      const knownToParty = partyKnows(face);
+      if (!knownToParty && !game.user.isGM) continue;
+      out[randomId()] = npcEntry({
+        ...npc, img: face.img ?? "", uuid: face.actor ?? "", auto: true, hidden: hidden || !knownToParty
+      }, sort++);
+      added.push(npc);
+    }
+  } catch (err) {
+    console.error(`${MODULE_ID} | related NPCs`, err);
+  }
+  return out;
+}
+
+/**
+ * Revealing an objective or stage also reveals the NPCs it brought in hidden (autoHidden, not hidden by the GM's eye
+ * button), when the party knows them. A stage's text counts with its objectives that players will see once it is
+ * revealed; an objective of a stage that is still hidden reveals nothing.
+ */
+function npcsRevealedWith(raw, kind, partId) {
+  const out = {};
+  try {
+    const part = raw[kind][partId];
+    if (kind === "objectives" && part.stage && raw.stages?.[part.stage]?.hidden) return out;
+    let text = kind === "stages" ? `${part.title ?? ""}\n${part.text ?? ""}` : String(part.text ?? "");
+    if (kind === "stages") {
+      for (const o of Object.values(raw.objectives ?? {})) if (o?.stage === partId && !o.hidden) text += `\n${o.text ?? ""}`;
+    }
+    const faces = new Set(mentionedFaces(text).filter(m => partyKnows(m.face)).map(m => m.face.id));
+    for (const [nid, n] of Object.entries(raw.npcs ?? {})) {
+      if (n?.autoHidden && n.hidden && faces.has(n.faceId)) out[nid] = { hidden: false, autoHidden: false };
+    }
+  } catch (err) {
+    console.error(`${MODULE_ID} | related NPCs`, err);
+  }
+  return out;
+}
+
+/** Adds a related NPC by hand: a name, a Familiar Faces & Places NPC (faceId) and/or an actor (uuid, img). */
+export async function addNpc(id, { name = "", faceId = "", uuid = "", img = "", hidden = false } = {}) {
+  const raw = rawQuest(id)?.raw;
+  const clean = cleanLine(name, 80);
+  if (!raw || !clean || hasNpc(raw, { faceId, name: clean })) return null;
+  const nid = randomId();
+  await patch(id, { npcs: { [nid]: npcEntry({ name: clean, faceId, uuid, img, hidden }) } }, { type: "npc-added" });
+  return nid;
+}
+
+export async function deleteNpc(id, nid) {
+  return patch(id, { npcs: { [`-=${nid}`]: null } });
 }
 
 /* Notes and clues */

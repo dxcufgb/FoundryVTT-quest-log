@@ -141,8 +141,8 @@ export async function importAdventureQuests(adventure, { notify = true } = {}) {
     // The adventure's order is kept: the newest-first list shows the first quest at the top.
     quest.createdAt = now;
     quest.updatedAt = now - i;
-    // Prepared stages, objectives and notes get the import time, so they don't show as dated 1970.
-    for (const kind of ["stages", "objectives", "notes"]) {
+    // Prepared stages, objectives, notes, items and NPCs get the import time, so they don't show as dated 1970.
+    for (const kind of ["stages", "objectives", "notes", "items", "npcs"]) {
       for (const part of Object.values(quest[kind] ?? {})) part.createdAt ||= now;
     }
     maps[hidden ? "secret" : "shared"][id] = quest;
@@ -233,8 +233,8 @@ export async function storeInAdventure(adventure, { includeHidden = true } = {})
 /*  @Quest[id]{label} links                     */
 /* -------------------------------------------- */
 
-// @Quest[id]{label} links a quest; @Quest[id/stages|objectives|notes|locations/partId]{label} links one part of it.
-const LINK_PATTERN = /@Quest\[([A-Za-z0-9]{1,32})(?:\/(stages|objectives|notes|locations)\/([A-Za-z0-9]{1,32}))?\](?:\{([^}]*)\})?/g;
+// @Quest[id]{label} links a quest; @Quest[id/stages|objectives|notes|locations|items|npcs/partId]{label} links one part of it.
+const LINK_PATTERN = /@Quest\[([A-Za-z0-9]{1,32})(?:\/(stages|objectives|notes|locations|items|npcs)\/([A-Za-z0-9]{1,32}))?\](?:\{([^}]*)\})?/g;
 
 function questLink(match) {
   const [, id, kind, partId, label] = match;
@@ -257,7 +257,7 @@ function questLink(match) {
     a.dataset.kind = kind;
     a.dataset.partId = partId;
   }
-  const icon = { stages: "fa-signs-post", objectives: "fa-list-check", locations: "fa-location-dot", notes: part?.type === "clue" ? "fa-magnifying-glass" : "fa-note-sticky" }[kind] ?? "fa-scroll";
+  const icon = { stages: "fa-signs-post", objectives: "fa-list-check", locations: "fa-location-dot", items: "fa-suitcase", npcs: "fa-user", notes: part?.type === "clue" ? "fa-magnifying-glass" : "fa-note-sticky" }[kind] ?? "fa-scroll";
   a.innerHTML = `<i class="fa-solid ${icon}" inert></i> ${escapeHTML(text)}`;
   const hidden = kind ? part?.hidden : quest?.hidden;
   if (!quest || (kind && !part)) {

@@ -316,7 +316,7 @@
         </label>
         {{#if editing}}
         <input type="text" class="dxql-objective-edit" data-bind="editObjective.text" data-drop="link" value="{{editText}}"
-               data-keys="objectiveEdit">
+               data-keys="objectiveEdit" data-npc-picker-field>
         <button type="button" class="dxql-icon-btn" data-action="saveObjective" aria-label="{{localize "Save"}}"><i class="fa-solid fa-check" inert></i></button>
         {{else}}
         <div class="dxql-objective-text dxql-rich">{{{html}}}</div>
@@ -342,7 +342,7 @@
     <div class="dxql-add-row {{#if newObjectiveHidden}}is-secret{{/if}}">
       <i class="fa-solid fa-plus" inert></i>
       <input type="text" data-bind="newObjective" data-drop="link" data-keys="newObjective" value="{{newObjective}}"
-             placeholder="{{localize "DXQL.Placeholder.NewObjective"}}">
+             placeholder="{{localize "DXQL.Placeholder.NewObjective"}}" data-npc-picker-field>
       {{#if isGM}}
       <button type="button" class="dxql-icon-btn dxql-eye {{#if newObjectiveHidden}}is-on{{/if}}" data-action="toggleNewObjectiveHidden"
               data-tooltip="{{#if newObjectiveHidden}}DXQL.AddsHidden{{else}}DXQL.AddsVisible{{/if}}">
@@ -358,6 +358,81 @@
     <div class="dxql-stage-add">
       <button type="button" data-action="addStage"><i class="fa-solid fa-signs-post" inert></i> {{localize "DXQL.AddStage"}}</button>
     </div>
+    {{#if facesActive}}<p class="dxql-hint">{{localize "DXQL.Hint.NpcLinks"}}</p>{{/if}}
+  </section>
+
+  {{!-- Related NPCs --}}
+  <section class="dxql-section dxql-npcs" data-drop="npcs">
+    <h3 class="dxql-section-title">
+      <i class="fa-solid fa-users" inert></i> {{localize "DXQL.Field.Npcs"}}
+      {{#if npcs.length}}<span class="dxql-count">{{npcs.length}}</span>{{/if}}
+    </h3>
+    {{#if npcs.length}}
+    <ul class="dxql-npc-list">
+      {{#each npcs}}
+      <li class="dxql-npc {{#if hidden}}is-secret{{/if}}" data-npc-id="{{id}}">
+        {{#if img}}<img class="dxql-npc-img" src="{{img}}" alt="">{{else}}<i class="fa-solid fa-user dxql-npc-img" inert></i>{{/if}}
+        {{#if faces}}<a data-action="openNpc" data-faces-kind="{{faces.kind}}" data-faces-id="{{faces.id}}" data-tooltip="DXQL.OpenInFaces">{{name}}</a>
+        {{else if uuid}}<a data-action="openNpc" data-tooltip="DXQL.Npc.OpenActor">{{name}}</a>
+        {{else}}<span>{{name}}</span>{{/if}}
+        {{#if auto}}<i class="fa-solid fa-wand-magic-sparkles dxql-npc-auto" data-tooltip="DXQL.Npc.Auto"></i>{{/if}}
+        {{#if @root.isGM}}<button type="button" class="dxql-icon-btn dxql-eye {{#if hidden}}is-on{{/if}}" data-action="togglePart" data-kind="npcs" data-part-id="{{id}}" data-tooltip="{{#if hidden}}DXQL.RevealToPlayers{{else}}DXQL.HideFromPlayers{{/if}}"><i class="fa-solid {{#if hidden}}fa-eye-slash{{else}}fa-eye{{/if}}" inert></i></button>{{/if}}
+        {{#if canDelete}}<button type="button" class="dxql-icon-btn dxql-danger dxql-npc-remove" data-action="deleteNpc" data-tooltip="DXQL.Npc.Remove"><i class="fa-solid fa-xmark" inert></i></button>{{/if}}
+      </li>
+      {{/each}}
+    </ul>
+    {{/if}}
+    <div class="dxql-add-row">
+      <i class="fa-solid fa-plus" inert></i>
+      <input type="text" data-bind="newNpc" data-keys="newNpc" value="{{newNpc}}" list="{{appId}}-npcs"
+             placeholder="{{localize "DXQL.Placeholder.NewNpc"}}">
+      <button type="button" data-action="addNpc">{{localize "DXQL.Add"}}</button>
+    </div>
+    <datalist id="{{appId}}-npcs">{{#each npcSuggestions}}<option value="{{this}}"></option>{{/each}}</datalist>
+    <p class="dxql-hint">{{#if facesActive}}{{localize "DXQL.Hint.NpcsFaces"}}{{else}}{{localize "DXQL.Hint.Npcs"}}{{/if}}</p>
+  </section>
+
+  {{!-- Items needed --}}
+  <section class="dxql-section dxql-items" data-drop="items">
+    <h3 class="dxql-section-title">
+      <i class="fa-solid fa-suitcase" inert></i> {{localize "DXQL.Field.Items"}}
+      {{#if items.length}}<span class="dxql-count">{{itemsHave}}/{{items.length}}</span>{{/if}}
+    </h3>
+    {{#if items.length}}
+    <ul class="dxql-objective-list dxql-item-list">
+      {{#each items}}
+      <li class="dxql-objective dxql-item {{#if have}}done{{/if}} {{#if hidden}}is-secret{{/if}}" data-item-id="{{id}}">
+        <label class="dxql-check" data-tooltip="{{#if have}}DXQL.MarkItemMissing{{else}}DXQL.MarkItemHave{{/if}}">
+          <input type="checkbox" data-change="toggleItem" {{checked have}}>
+          <span class="dxql-checkmark"><i class="fa-solid fa-check" inert></i></span>
+        </label>
+        {{#if img}}<img class="dxql-item-img" src="{{img}}" alt="">{{/if}}
+        <div class="dxql-objective-text">
+          {{#if uuid}}<a data-action="openItem" data-tooltip="DXQL.OpenItem">{{name}}</a>{{else}}<span>{{name}}</span>{{/if}}
+        </div>
+        {{#if @root.isGM}}<button type="button" class="dxql-icon-btn dxql-eye {{#if hidden}}is-on{{/if}}" data-action="togglePart" data-kind="items" data-part-id="{{id}}" data-tooltip="{{#if hidden}}DXQL.RevealToPlayers{{else}}DXQL.HideFromPlayers{{/if}}"><i class="fa-solid {{#if hidden}}fa-eye-slash{{else}}fa-eye{{/if}}" inert></i></button>{{/if}}
+        {{#if canDelete}}
+        <div class="dxql-row-actions">
+          <button type="button" class="dxql-icon-btn dxql-danger" data-action="deleteItem" data-tooltip="DXQL.Delete">
+            <i class="fa-solid fa-trash" inert></i></button>
+        </div>
+        {{/if}}
+      </li>
+      {{/each}}
+    </ul>
+    {{/if}}
+    <div class="dxql-add-row {{#if newItemHidden}}is-secret{{/if}}">
+      <i class="fa-solid fa-plus" inert></i>
+      <input type="text" data-bind="newItem" data-keys="newItem" value="{{newItem}}"
+             placeholder="{{localize "DXQL.Placeholder.NewItem"}}">
+      {{#if isGM}}
+      <button type="button" class="dxql-icon-btn dxql-eye {{#if newItemHidden}}is-on{{/if}}" data-action="toggleNewItemHidden"
+              data-tooltip="{{#if newItemHidden}}DXQL.AddsHidden{{else}}DXQL.AddsVisible{{/if}}">
+        <i class="fa-solid {{#if newItemHidden}}fa-eye-slash{{else}}fa-eye{{/if}}" inert></i></button>
+      {{/if}}
+      <button type="button" data-action="addItem">{{localize "DXQL.Add"}}</button>
+    </div>
+    <p class="dxql-hint">{{localize "DXQL.Hint.Items"}}</p>
   </section>
 
   {{!-- Images --}}

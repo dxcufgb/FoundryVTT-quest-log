@@ -23,6 +23,16 @@ System-agnostic. No build step and no npm dependencies.
   writes the edit form's list (ids kept, removed ones `-=id`, legacy migrated, `location` cleared); a player's list lacks
   hidden places, so it never removes or changes them. `chapter` (text) and `questType` ("main" | "side" | "") are
   single-value categories with their own group-by modes.
+  Items needed are keyed `items.<id>` ({name, uuid, img, have, hidden, sort, createdBy}; part kind `items`), added and
+  ticked in the quest window (`addItem` / `updateItem` / `deleteItem`), like objectives.
+  Related NPCs are keyed `npcs.<id>` ({name, faceId, uuid, img, auto, hidden, sort, createdBy}; part kind `npcs`).
+- `scripts/npcs.js` – Familiar Faces & Places NPCs in quest text: the `@NPC[faceId]{label}` enricher (a link only for
+  users who know the NPC there), the "@" pick list (`attachNpcPicker`, on objective inputs and the stage dialog) and
+  `mentionedFaces` / `newMentions`. `addObjective` / `updateObjective` / `addStage` / `updateStage` / `createQuest`
+  add the NPCs a text newly mentions to `npcs` in the same patch (`auto: true`; hidden when the text is hidden, or a
+  GM's link to an NPC the party doesn't know, with `autoHidden`; a player's link to such an NPC adds nothing). Revealing an
+  objective (not of a hidden stage) or stage reveals the `autoHidden` ones (`npcsRevealedWith`); the GM's eye button on an
+  NPC clears `autoHidden`. A player's duplicate check ignores hidden NPCs, so they never learn of one.
 - `scripts/apps/quest-log-tab.js` – `QuestLogTab` (HandlebarsApplicationMixin(AbstractSidebarTab)): parts `nav`
   (Quests / Quest Rewards / Notes switch, client setting `view`), `header` (search box, never re-rendered by data changes so
   typing isn't interrupted; re-rendered when the view switches), `filters`, `list`. In the rewards view
