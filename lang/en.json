@@ -199,7 +199,7 @@
     "Settings": {
       "Notify": {
         "Name": "Announce quest changes",
-        "Hint": "Show a notification to everyone when a quest is added, revealed, completed, failed or reopened."
+        "Hint": "Show a notification to everyone when a quest is added, revealed, completed, failed or reopened, or a hidden part of it is revealed; when a quest reward is added, revealed, used, used up, marked claimed or made active again; and when a note is added or revealed."
       },
       "PlayersCanDelete": {
         "Name": "Players can delete anything",
