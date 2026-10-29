@@ -75,7 +75,7 @@ The first time a GM opens the world after enabling the module, the quest log is 
   - Right-click a **chat message**, a **journal entry** or a **journal page** → *Add as a Note…*, or select text and choose *Add selection as a note in Notes…*, to open the note form filled in from it.
   - The quest window lists the party's notes about the quest, with an *Add Note* button.
   - **Hidden notes (GM)**: a note can be hidden from players and revealed later, e.g. a handout prepared before the session. A note about a hidden quest stays hidden until the quest is revealed.
-- **Notifications** when someone adds, reveals, completes, fails or reopens a quest, when a quest reward is added, revealed, used or used up, and when a note is added or revealed (setting).
+- **Notifications** when someone adds, reveals, completes, fails or reopens a quest, when a quest reward is added, revealed, used, used up, marked claimed or made active again, and when a note is added or revealed (setting).
 - **Import / export (GM)**: the two buttons next to *Group by* in the Quest Log tab.
   - **Export** saves the log as a JSON file; choose which statuses to include, whether to include the quest rewards and the notes, and whether to include hidden quests, hidden rewards, hidden notes and hidden parts (left out, the file has only what players can see).
   - **Import** reads such a file and either **adds** its quests, rewards and notes to the log (one that is already in the log is replaced by the version in the file) or **replaces the whole log** (asks again before deleting anything; the rewards and the notes are replaced only when the file has them). Hidden quests, rewards and notes stay hidden.
@@ -89,7 +89,7 @@ The first time a GM opens the world after enabling the module, the quest log is 
 
 - Everyone can create quests, edit their details, add and tick objectives and items needed, add notes, clues and images.
 - Players can delete only what they added themselves (quests, objectives, notes, images), unless the GM turns on *Players can delete anything*. The GM can always delete everything.
-- Only the author (or the GM) can edit or delete a note.
+- Only the author (or the GM) can edit a note or clue in a quest's log; deleting one follows the rule above.
 - Everyone can add, edit and use quest rewards; deleting one follows the same rule as quests.
 - Everyone can add, edit, pin and share notes in the Notes view; deleting one (or an image on it) follows the same rule as quests.
 - Hidden quests and hidden parts of quests are kept out of everything players see. Like any GM-only journal entry, a player who digs into the browser console could still read them; don't rely on it for secrets you'd hide from a determined player.
@@ -98,7 +98,7 @@ The first time a GM opens the world after enabling the module, the quest log is 
 
 | Setting | Scope | Default | What it does |
 |---|---|---|---|
-| Announce quest changes | World | On | Notification to everyone when a quest is added, revealed, completed, failed or reopened, a quest reward is added, revealed, used or used up, or a note is added or revealed. |
+| Announce quest changes | World | On | Notification to everyone when a quest is added, revealed, completed, failed or reopened, a quest reward is added, revealed, used, used up, marked claimed or made active again, or a note is added or revealed. |
 | Offer quest rewards on completion | World | On | When a quest with a reward is completed, the GM is asked whether to add it to the Quest Rewards. |
 | Players can delete anything | World | Off | Off: players delete only their own quests, objectives, notes and images. |
 | Import quests from adventures | World | On | Adds the quests stored in an adventure to the quest log (hidden) when a GM imports it. |
@@ -115,32 +115,52 @@ Every change is saved as a small update of just the part that changed, so severa
 
 ## API
 
-`game.modules.get("dxcufgbs-quest-log").api`:
+`game.modules.get("dxcufgbs-quest-log").api` (set when the world is ready; see *From another module* below). Functions that change data return a Promise, so `await` them. Players can use everything not marked GM, also with no GM online.
 
 | Function | |
 |---|---|
 | `open()` | Opens the Quest Log tab. |
-| `openQuest(id)` / `newQuest(prefill)` | Opens a quest's window / the new-quest form (`prefill`: `title`, `questType` (`"main"`/`"side"`), `chapter`, `giver`, `acquiredAt`, `location` (one text; commas split it into places) or `locations` (`[{name, hidden}]`), `reward`, `description`, `tags`, `objectivesText`). |
+| `openQuest(id)` / `newQuest(prefill)` | Opens a quest's window / the new-quest form (`prefill`: `title`, `questType` (`"main"`/`"side"`), `chapter`, `giver`, `acquiredAt`, `location` (one text; commas split it into places) or `locations` (`[{name, hidden}]`), `reward`, `description`, `tags`, `objectivesText` (one objective per line), `images` (paths), `hidden` (GM)). Nothing is saved until the user clicks Create. |
 | `addToQuestLog({text, images, source, type, title})` | Opens the *Add to Quest Log* dialog (`type`: `note`, `clue`, `objective` or `quest`). |
-| `quests()` / `getQuest(id)` | Quests the current user can see. |
-| `createQuest(data, {hidden})` | Creates a quest and returns its id. |
-| `updateQuest(id, data)`, `setStatus(id, status)`, `addObjective(id, text)`, `addItem(id, {name, uuid, img})`, `addNpc(id, {name, faceId, uuid, img})`, `addNote(id, {type, text, images})` | Changes a quest. |
+| `quests()` / `getQuest(id)` | Quests the current user can see (`getQuest` returns `null` for an unknown quest, and for players for a hidden one). For players, hidden parts are left out and hidden fields come back empty. |
+| `createQuest(data, {hidden})` | Creates a quest and returns its id (`null` before the quest log is set up). `data`: `title`, `questType`, `chapter`, `giver`, `acquiredAt`, `locations` (`[{name, hidden}]`; the one-text `location` of `prefill` isn't read here), `reward`, `description`, `tags`, `objectives` (a list of texts) and `images` (paths). `hidden: true` (GM) creates it hidden from players. |
+| `updateQuest(id, data)`, `setStatus(id, status)`, `addObjective(id, text, {hidden, stage})`, `addItem(id, {name, uuid, img, hidden})`, `addNpc(id, {name, faceId, uuid, img, hidden})`, `addNote(id, {type, text, images, source, hidden})` | Changes a quest. `status`: `active`, `completed` or `failed`. `stage`: a stage id of the quest. `faceId`: the id of a Familiar Faces & Places NPC. `type`: `note` or `clue`; `source`: `{uuid, label}` of where it came from. `hidden` works for GMs only. The `add…` calls return the new entry's id. |
 | `exportQuests()` / `importQuests(file?)` | GM: the export dialog / import from a `File` (asks for one when left out). |
 | `deleteAllQuests()` | GM: the *Delete all quests* confirmation; deletes every quest when confirmed. Returns how many were deleted. |
-| `importAdventureQuests(adventure)` | GM: adds the quests, rewards and notes stored in an Adventure (document or UUID) to the log, skipping ones already there. Returns the quest counts `{added, skipped, hidden}`. |
-| `storeInAdventure(adventure, {includeHidden})` | GM: stores the world's quest log (quests, rewards and notes) in an Adventure (its compendium must be unlocked), so the adventure brings them along. `includeHidden: false` leaves out hidden quests, rewards, notes and hidden parts. |
+| `convertCategoryTags()` | GM: turns *Main quest* / *Side quest* / *Chapter …* tags into the quest type and chapter (see *Main quest / Side quest* above), without asking. Returns how many quests were changed. |
+| `importAdventureQuests(adventure, {notify})` | GM: adds the quests, rewards and notes stored in an Adventure (document or UUID) to the log, skipping ones already there. Returns the quest counts `{added, skipped, hidden}`, or `null` when the adventure has no quest log. `notify: false` shows no notifications. |
+| `storeInAdventure(adventure, {includeHidden})` | GM: stores the world's quest log (quests, rewards and notes) in an Adventure (its compendium must be unlocked), so the adventure brings them along. `includeHidden: false` leaves out hidden quests, rewards, notes and hidden parts. Returns how many quests were stored. |
 | `openRewards()` / `openReward(id)` / `newReward(prefill)` | Opens the Quest Rewards view / a reward's window / the new-reward form (`prefill`: `name`, `description`, `img`, `maxUses` (0 = no limit), `usesLeft`, `questId`, `links` (`[{type, name, uuid}]`, `type`: `place`, `npc`, `faction`, `other`), `hidden`). |
 | `addAsReward({text, images, source, title})` | Opens the new-reward form filled in from a piece of text. |
 | `rewards()` / `getReward(id)` | Quest rewards the current user can see (`status` `active` or `claimed`, `maxUses`, `usesLeft`, `unlimited`, `log` of uses, `links`, `questId`). |
 | `createReward(data, {hidden})` / `updateReward(id, data)` / `deleteReward(id)` | Creates (returns the id), changes or deletes a reward (`data` as `prefill` above). |
-| `useReward(id)`, `undoRewardUse(id)`, `refillReward(id)`, `setRewardClaimed(id, claimed)`, `setRewardHidden(id, hidden)` | Uses a reward once (the last use moves it to claimed), takes back the last use, fills it again, claims or restores it, hides or reveals it (GM). |
-| `offerQuestRewards(questId)` | GM: asks whether to add a completed quest's reward to the Quest Rewards (what happens when a quest is completed). |
+| `useReward(id)`, `undoRewardUse(id)`, `refillReward(id)`, `setRewardClaimed(id, claimed)`, `setRewardHidden(id, hidden)` | Uses a reward once (the last use moves it to claimed; rewards with no limit have no uses to count), takes back the last use, fills it again, claims or restores it, hides or reveals it (GM). |
+| `offerQuestRewards(questId)` | GM: asks whether to add a completed quest's reward to the Quest Rewards (what happens when a quest is completed). Does nothing unless the quest is completed and has something in its *Reward* field. |
 | `openNotes()` / `openPartyNote(id)` / `newPartyNote(prefill)` | Opens the Notes view / a note's window / the new-note form (`prefill`: `title`, `text`, `tags`, `questId`, `links` (`[{type, name, uuid}]`), `images` (paths), `pinned`, `hidden`). |
 | `addAsPartyNote({text, images, source, title})` | Opens the new-note form filled in from a piece of text. |
 | `partyNotes()` / `getPartyNote(id)` | Notes the current user can see (`title`, `text`, `tags`, `questId`, `links`, `gallery` (`[{id, src}]`), `pinned`, `hidden`). |
-| `createPartyNote(data, {hidden})` / `updatePartyNote(id, data)` / `deletePartyNote(id)` | Creates (returns the id), changes or deletes a note (`data` as `prefill` above; `images` only when creating). |
-| `setPartyNotePinned(id, pinned)`, `setPartyNoteHidden(id, hidden)`, `addPartyNoteImages(id, paths)`, `sharePartyNote(id)` | Pins or unpins a note, hides or reveals it (GM), adds images to it, posts it to the chat. |
-| `setPartHidden(id, kind, partId, hidden)` / `setFieldHidden(id, field, hidden)` | GM: hides or reveals one stage, objective, note/clue, image, place, item needed or related NPC (`kind`: `stages`, `objectives`, `notes`, `gallery`, `locations`, `items`, `npcs`) / one field (`questType`, `chapter`, `giver`, `acquiredAt`, `reward`, `description`, `tags`). |
+| `createPartyNote(data, {hidden})` / `updatePartyNote(id, data)` / `deletePartyNote(id)` | Creates (returns the id), changes or deletes a note (`data` as `prefill` above; when changing a note, paths in `images` are added to its images). |
+| `setPartyNotePinned(id, pinned)`, `setPartyNoteHidden(id, hidden)`, `addPartyNoteImages(id, paths)`, `sharePartyNote(id)` | Pins or unpins a note, hides or reveals it (GM), adds images (paths) to it, posts it to the chat (not while it is hidden). |
+| `setPartHidden(id, kind, partId, hidden)` / `setFieldHidden(id, field, hidden)` | GM: hides or reveals one stage, objective, note/clue, image, place, item needed or related NPC (`kind`: `stages`, `objectives`, `notes`, `gallery`, `locations`, `items`, `npcs`) / one field (`questType`, `chapter`, `giver`, `acquiredAt`, `reward`, `description`, `tags`, or `location` for every place at once). |
+
+The module calls no hooks of its own.
+
+### From another module
+
+The API is set at the end of the module's own `ready` hook, after the quest log's journals are checked, so it may not be there yet while another module's `ready` hook runs. Look it up when you need it (a button, a macro, a later hook) and make the integration optional:
+
+```js
+const questLog = game.modules.get("dxcufgbs-quest-log");
+const api = questLog?.active ? questLog.api : null;
+if (api) {
+  const id = await api.createQuest({ title: "The Missing Blacksmith", giver: "Mayor Holt", objectives: ["Find the blacksmith"] });
+  await api.addNote(id, { type: "clue", text: "Soot on the mayor's boots." });
+}
+```
+
+Add `{ "id": "dxcufgbs-quest-log", "type": "module" }` to `relationships.recommends` in your `module.json`.
+
+Read and change the log through the API, not the flags: the data journals (`flags.dxcufgbs-quest-log.store` is `"shared"` or `"secret"`) and the shape of their `quests`, `rewards` and `partyNotes` flags are internal and may change. The stable formats are the export file / adventure format below and the links: `@Quest[<id>]{label}`, `@Quest[<id>/<part kind>/<part id>]{label}`, `@Reward[<id>]{label}`, `@PartyNote[<id>]{label}`, and `@NPC[<Familiar Faces & Places NPC id>]{label}`, which links an NPC for every user who knows them in Familiar Faces & Places (plain text for everyone else, and without that module).
 
 ### Making an adventure that brings quests
 
