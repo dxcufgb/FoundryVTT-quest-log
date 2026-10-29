@@ -336,7 +336,8 @@ export async function setPartHidden(id, kind, partId, hidden) {
   const part = raw?.[kind]?.[partId];
   if (!part || !!part.hidden === !!hidden) return;
   const event = hidden ? null : { type: `revealed-${kind}`, noteType: part.type ?? null, title: raw.title };
-  const update = { [kind]: { [partId]: { hidden: !!hidden } } };
+  // The GM's own eye button on an NPC decides from now on: revealing a text no longer changes it.
+  const update = { [kind]: { [partId]: kind === "npcs" ? { hidden: !!hidden, autoHidden: false } : { hidden: !!hidden } } };
   if (!hidden && (kind === "objectives" || kind === "stages")) {
     const npcs = npcsRevealedWith(raw, kind, partId);
     if (Object.keys(npcs).length) update.npcs = npcs;
@@ -563,36 +564,44 @@ export async function deleteItem(id, iid) {
 /** The npcs entry for a Familiar Faces & Places NPC, an actor, or just a name. */
 function npcEntry({ name, faceId = "", uuid = "", img = "", hidden = false, auto = false }, sort) {
   const now = Date.now();
+  const secret = !!(hidden && game.user.isGM);
   return {
     name: cleanLine(name, 80), faceId: String(faceId ?? "").slice(0, 32), uuid: String(uuid ?? "").slice(0, 200),
-    img: String(img ?? "").slice(0, 500), auto: !!auto, hidden: !!(hidden && game.user.isGM), sort: sort ?? now,
-    createdBy: game.user.id, createdAt: now
+    img: String(img ?? "").slice(0, 500), auto: !!auto, hidden: secret,
+    // Hidden because of where it was mentioned (not by the GM's eye button): revealing that text reveals it.
+    autoHidden: !!(auto && secret),
+    sort: sort ?? now, createdBy: game.user.id, createdAt: now
   };
 }
 
-/** Whether the quest already lists this NPC (same Familiar Faces & Places NPC, or the same name). */
+/**
+ * Whether the quest already lists this NPC (same Familiar Faces & Places NPC, or the same name). For players only the
+ * NPCs they can see count, so a hidden NPC never shows by blocking theirs.
+ */
 function hasNpc(raw, { faceId, name }) {
   const key = cleanLine(name, 80).toLowerCase();
-  return Object.values(raw?.npcs ?? {}).some(n => n && ((faceId && n.faceId === faceId) || cleanLine(n.name, 80).toLowerCase() === key));
+  return Object.values(raw?.npcs ?? {}).some(n => n && (game.user.isGM || !n.hidden)
+    && ((faceId && n.faceId === faceId) || cleanLine(n.name, 80).toLowerCase() === key));
 }
 
 /**
  * New Related NPCs entries for the NPCs a text newly mentions (see npcs.js): {[id]: entry}. hidden: the text is hidden
- * from players (a hidden objective or stage), so the NPCs it brings in are hidden too. The GM's links to NPCs the party
- * doesn't know yet are added hidden.
+ * from players (a hidden objective or stage), so the NPCs it brings in are hidden too. NPCs only some players know
+ * (linked with @NPC) are added hidden when the GM links them, and not at all when a player does: a player can't hide
+ * them, and the rest of the party mustn't learn of them from the list.
  */
 function mentionedNpcs(raw, text, oldText, hidden) {
   const out = {};
   const added = [];
   let sort = Date.now();
   try {
-    for (const { face, linked } of oldText ? newMentions(text, oldText) : mentionedFaces(text)) {
+    for (const { face } of oldText ? newMentions(text, oldText) : mentionedFaces(text)) {
       const npc = { faceId: face.id, name: face.name };
       if (hasNpc(raw, npc) || added.some(a => a.faceId === face.id)) continue;
-      const unknownToParty = Array.isArray(face.knownBy) && face.knownBy.length;
+      const knownToParty = partyKnows(face);
+      if (!knownToParty && !game.user.isGM) continue;
       out[randomId()] = npcEntry({
-        ...npc, img: face.img ?? "", uuid: face.actor ?? "", auto: true,
-        hidden: hidden || (linked && unknownToParty && game.user.isGM)
+        ...npc, img: face.img ?? "", uuid: face.actor ?? "", auto: true, hidden: hidden || !knownToParty
       }, sort++);
       added.push(npc);
     }
@@ -603,20 +612,22 @@ function mentionedNpcs(raw, text, oldText, hidden) {
 }
 
 /**
- * Revealing an objective or stage also reveals the NPCs it brought in hidden (auto-added), when the party knows them.
- * A stage's text counts with its objectives that players will see once it is revealed.
+ * Revealing an objective or stage also reveals the NPCs it brought in hidden (autoHidden, not hidden by the GM's eye
+ * button), when the party knows them. A stage's text counts with its objectives that players will see once it is
+ * revealed; an objective of a stage that is still hidden reveals nothing.
  */
 function npcsRevealedWith(raw, kind, partId) {
   const out = {};
   try {
     const part = raw[kind][partId];
+    if (kind === "objectives" && part.stage && raw.stages?.[part.stage]?.hidden) return out;
     let text = kind === "stages" ? `${part.title ?? ""}\n${part.text ?? ""}` : String(part.text ?? "");
     if (kind === "stages") {
       for (const o of Object.values(raw.objectives ?? {})) if (o?.stage === partId && !o.hidden) text += `\n${o.text ?? ""}`;
     }
     const faces = new Set(mentionedFaces(text).filter(m => partyKnows(m.face)).map(m => m.face.id));
     for (const [nid, n] of Object.entries(raw.npcs ?? {})) {
-      if (n?.auto && n.hidden && faces.has(n.faceId)) out[nid] = { hidden: false };
+      if (n?.autoHidden && n.hidden && faces.has(n.faceId)) out[nid] = { hidden: false, autoHidden: false };
     }
   } catch (err) {
     console.error(`${MODULE_ID} | related NPCs`, err);

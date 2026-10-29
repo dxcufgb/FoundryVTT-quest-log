@@ -1,5 +1,5 @@
 import {
-  MODULE_ID, TEMPLATE_PATH, STATUS_ICONS, NOTE_ICONS, REWARD_STATUS_ICONS, HIDEABLE_FIELDS, QUEST_TYPES, t, cleanLine, tagHue, cleanTag, enrich, formatDate, userInfo,
+  MODULE_ID, TEMPLATE_PATH, STATUS_ICONS, NOTE_ICONS, REWARD_STATUS_ICONS, HIDEABLE_FIELDS, PART_KINDS, QUEST_TYPES, t, cleanLine, tagHue, cleanTag, enrich, formatDate, userInfo,
   locationSuggestions, currentSceneName, getDropData, linkForDrop, insertAtCursor, randomId, escapeHTML, facesEntry, openFacesEntry
 } from "../util.js";
 import * as store from "../store.js";
@@ -278,7 +278,7 @@ export class QuestSheet extends HandlebarsApplicationMixin(ApplicationV2) {
 
     const secret = Object.fromEntries(HIDEABLE_FIELDS.map(f => [f, quest.hiddenFields.includes(f)]));
     const hiddenParts = quest.hiddenFields.length
-      + ["stages", "objectives", "notes", "gallery", "locations", "items", "npcs"].reduce((n, k) => n + quest[k].filter(p => p.hidden).length, 0);
+      + PART_KINDS.reduce((n, k) => n + quest[k].filter(p => p.hidden).length, 0);
     const total = quest.objectives.length;
     const done = quest.objectives.filter(o => o.done).length;
     const objectives = [];
@@ -721,8 +721,7 @@ export class QuestSheet extends HandlebarsApplicationMixin(ApplicationV2) {
   static async #onTogglePart(event, target) {
     event.stopPropagation();
     const { kind, partId } = target.dataset;
-    const list = { stages: "stages", objectives: "objectives", notes: "notes", gallery: "gallery", locations: "locations", items: "items", npcs: "npcs" }[kind];
-    const part = list && this.quest?.[list].find(p => p.id === partId);
+    const part = PART_KINDS.includes(kind) && this.quest?.[kind].find(p => p.id === partId);
     if (part) await store.setPartHidden(this.questId, kind, partId, !part.hidden);
   }
 

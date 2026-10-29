@@ -281,7 +281,7 @@ export function sanitizeQuest(q) {
     const npcName = cleanLine(n.name, 80);
     if (!npcName) continue;
     quest.npcs[id] = {
-      name: npcName, faceId: userId(n.faceId) ?? "", uuid: str(n.uuid, 200), img: str(n.img, 500), auto: !!n.auto, hidden: !!n.hidden,
+      name: npcName, faceId: userId(n.faceId) ?? "", uuid: str(n.uuid, 200), img: str(n.img, 500), auto: !!n.auto, hidden: !!n.hidden, autoHidden: !!(n.autoHidden && n.hidden),
       createdBy: userId(n.createdBy), authorName: name(n.authorName), createdAt: num(n.createdAt), sort: num(n.sort)
     };
   }

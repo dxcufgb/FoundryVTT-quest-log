@@ -1,4 +1,4 @@
-import { MODULE_ID, FACES_ID, t, escapeHTML, escapeRegExp, cleanLine } from "./util.js";
+import { MODULE_ID, FACES_ID, t, escapeHTML, escapeRegExp, cleanLine, facesApi } from "./util.js";
 
 /*
  * NPCs from Dxcufgb's Familiar Faces & Places in quest text.
@@ -12,11 +12,6 @@ import { MODULE_ID, FACES_ID, t, escapeHTML, escapeRegExp, cleanLine } from "./u
 export const NPC_LINK = /@NPC\[([A-Za-z0-9]{1,32})\](?:\{([^}]*)\})?/g;
 const MIN_NAME = 3;
 const MAX_SUGGESTIONS = 8;
-
-function facesApi() {
-  const mod = game.modules.get(FACES_ID);
-  return mod?.active ? mod.api ?? null : null;
-}
 
 export function facesActive() {
   return typeof facesApi()?.faces === "function";
@@ -49,10 +44,19 @@ export function partyKnows(face) {
   return !!face && !(Array.isArray(face.knownBy) && face.knownBy.length);
 }
 
-/** A name as a whole word or phrase, any case, any spacing. */
+/** Compiled name patterns, by name (names rarely change, and every objective or stage save tests all of them). */
+const patterns = new Map();
+
+/** A name as a whole word or phrase, any case, any spacing within one line (texts join their parts with newlines). */
 function namePattern(name) {
-  const body = String(name).trim().split(/\s+/).map(escapeRegExp).join("\\s+");
-  return new RegExp(`(?<![\\p{L}\\p{N}_])${body}(?![\\p{L}\\p{N}_])`, "iu");
+  let re = patterns.get(name);
+  if (!re) {
+    const body = String(name).trim().split(/\s+/).map(escapeRegExp).join("[^\\S\\r\\n]+");
+    re = new RegExp(`(?<![\\p{L}\\p{N}_])${body}(?![\\p{L}\\p{N}_])`, "iu");
+    if (patterns.size > 2000) patterns.clear();
+    patterns.set(name, re);
+  }
+  return re;
 }
 
 /**

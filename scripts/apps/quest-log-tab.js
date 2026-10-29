@@ -1,4 +1,5 @@
 import {
+  PART_KINDS,
   MODULE_ID, TEMPLATE_PATH, STATUSES, STATUS_ICONS, REWARD_STATUSES, REWARD_STATUS_ICONS, LINK_ICONS, LINK_TYPES, t, tagHue, formatDate,
   escapeHTML, plainText, userInfo
 } from "../util.js";
@@ -220,7 +221,7 @@ export class QuestLogTab extends HandlebarsApplicationMixin(AbstractSidebarTab) 
       progress: total ? { done, total, pct: Math.round(done / total * 100) } : null,
       noteCount: quest.notes.length,
       hiddenParts: quest.hidden ? 0 : quest.hiddenFields.length
-        + ["stages", "objectives", "notes", "gallery", "locations", "items", "npcs"].reduce((n, k) => n + (quest[k] ?? []).filter(p => p.hidden).length, 0),
+        + PART_KINDS.reduce((n, k) => n + (quest[k] ?? []).filter(p => p.hidden).length, 0),
       updated: formatDate(quest.updatedAt),
       snippet
     };

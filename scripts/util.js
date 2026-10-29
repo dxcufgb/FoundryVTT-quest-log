@@ -35,7 +35,8 @@ const FACES_KINDS = { npc: "faces", place: "places", faction: "factions" };
 const FACES_FIND = { faces: "findByName", places: "findPlaceByName", factions: "findFactionByName" };
 const FACES_OPEN = { faces: "openFace", places: "openPlace", factions: "openFaction" };
 
-function facesApi() {
+/** The Familiar Faces & Places API, or null when that module isn't active. */
+export function facesApi() {
   const mod = game.modules.get(FACES_ID);
   return mod?.active ? mod.api ?? null : null;
 }

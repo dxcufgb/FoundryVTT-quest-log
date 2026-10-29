@@ -30,7 +30,9 @@ System-agnostic. No build step and no npm dependencies.
   users who know the NPC there), the "@" pick list (`attachNpcPicker`, on objective inputs and the stage dialog) and
   `mentionedFaces` / `newMentions`. `addObjective` / `updateObjective` / `addStage` / `updateStage` / `createQuest`
   add the NPCs a text newly mentions to `npcs` in the same patch (`auto: true`; hidden when the text is hidden, or a
-  GM's link to an NPC the party doesn't know); revealing an objective or stage reveals those (`npcsRevealedWith`).
+  GM's link to an NPC the party doesn't know, with `autoHidden`; a player's link to such an NPC adds nothing). Revealing an
+  objective (not of a hidden stage) or stage reveals the `autoHidden` ones (`npcsRevealedWith`); the GM's eye button on an
+  NPC clears `autoHidden`. A player's duplicate check ignores hidden NPCs, so they never learn of one.
 - `scripts/apps/quest-log-tab.js` – `QuestLogTab` (HandlebarsApplicationMixin(AbstractSidebarTab)): parts `nav`
   (Quests / Quest Rewards / Notes switch, client setting `view`), `header` (search box, never re-rendered by data changes so
   typing isn't interrupted; re-rendered when the view switches), `filters`, `list`. In the rewards view
