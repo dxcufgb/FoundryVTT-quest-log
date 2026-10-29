@@ -19,6 +19,8 @@
       "Objectives": "Objectives",
       "Item": "Item needed",
       "Items": "Items needed",
+      "Npc": "Related NPC",
+      "Npcs": "Related NPCs",
       "StageTitle": "Stage",
       "StageText": "What the party knows now",
       "Chapter": "Chapter",
@@ -139,6 +141,7 @@
       "NewObjectives": "One objective per line",
       "NewObjective": "Add an objective…",
       "NewItem": "Add an item the quest needs…",
+      "NewNpc": "Add an NPC…",
       "Note": "Write a note… (Ctrl+Enter to post)",
       "Clue": "What did you find? (Ctrl+Enter to post)",
       "StageTitle": "e.g. Into the Library",
@@ -153,7 +156,10 @@
       "Composer": "Paste or drop images",
       "HideParts": "Use the eye buttons to hide single fields from players. In the quest window you can also hide each objective, note, clue and image.",
       "Places": "Press Enter or type a comma to add a place. Drop the place with ×.",
-      "Items": "Type a name and press Enter, or drop an item here to link it. Tick an item when the party has it."
+      "Items": "Type a name and press Enter, or drop an item here to link it. Tick an item when the party has it.",
+      "Npcs": "Type a name and press Enter, or drop an actor here to link it.",
+      "NpcsFaces": "Type a name and press Enter, or drop an actor here. NPCs from Familiar Faces & Places that an objective or stage mentions are added by themselves.",
+      "NpcLinks": "Type @ and the start of a name in an objective or stage to link an NPC from Familiar Faces & Places."
     },
     "NotAnImage": "That file isn't an image.",
     "UploadFailed": "The upload failed.",
@@ -267,6 +273,13 @@
     "NotifyNewClue": "New clue in {title}",
     "NotifyNewImage": "New image in {title}",
     "NotifyNewItem": "New item needed in {title}",
+    "NotifyNewNpc": "New NPC in {title}",
+    "Npc": {
+      "Unknown": "Unknown NPC",
+      "Auto": "Added because an objective or stage mentions this NPC",
+      "OpenActor": "Open the actor",
+      "Remove": "Remove from this quest"
+    },
     "NotifyNewInfo": "New information in {title}",
     "Adventure": {
       "NoQuests": "The adventure {title} has no quests stored in it.",

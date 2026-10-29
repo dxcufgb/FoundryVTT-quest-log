@@ -26,7 +26,7 @@ function userName(id) {
 function withNames(raw) {
   const quest = foundry.utils.deepClone(raw);
   quest.authorName ??= userName(quest.createdBy);
-  for (const key of ["stages", "objectives", "notes", "gallery", "items"]) {
+  for (const key of ["stages", "objectives", "notes", "gallery", "items", "npcs"]) {
     for (const entry of Object.values(quest[key] ?? {})) {
       if (!entry || typeof entry !== "object") continue;
       entry.authorName ??= userName(entry.createdBy);
@@ -219,6 +219,7 @@ export function sanitizeQuest(q) {
     notes: {},
     gallery: {},
     items: {},
+    npcs: {},
     createdBy: userId(q.createdBy),
     authorName: name(q.authorName),
     createdAt: num(q.createdAt) || now,
@@ -274,6 +275,14 @@ export function sanitizeQuest(q) {
     quest.items[id] = {
       name: itemName, uuid: str(it.uuid, 200), img: str(it.img, 500), have: !!it.have, hidden: !!it.hidden,
       createdBy: userId(it.createdBy), authorName: name(it.authorName), createdAt: num(it.createdAt), sort: num(it.sort)
+    };
+  }
+  for (const [id, n] of entries(q.npcs)) {
+    const npcName = cleanLine(n.name, 80);
+    if (!npcName) continue;
+    quest.npcs[id] = {
+      name: npcName, faceId: userId(n.faceId) ?? "", uuid: str(n.uuid, 200), img: str(n.img, 500), auto: !!n.auto, hidden: !!n.hidden,
+      createdBy: userId(n.createdBy), authorName: name(n.authorName), createdAt: num(n.createdAt), sort: num(n.sort)
     };
   }
   return quest;

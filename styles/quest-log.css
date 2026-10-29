@@ -573,6 +573,32 @@
 .dxql .dxql-item-list { margin-bottom: 6px; }
 .dxql .dxql-item .dxql-objective-text { cursor: default; }
 .dxql .dxql-item-img { width: 22px; height: 22px; flex: none; object-fit: cover; border: none; border-radius: 3px; }
+
+/* Related NPCs: chips with a portrait. */
+.dxql .dxql-npc-list { list-style: none; margin: 0 0 6px; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; }
+.dxql .dxql-npc {
+  display: flex; align-items: center; gap: 6px; padding: 3px 6px 3px 3px;
+  border: 1px solid var(--dxql-border); border-radius: 999px; background: var(--dxql-hover);
+}
+.dxql .dxql-npc-img { width: 24px; height: 24px; flex: none; object-fit: cover; border: none; border-radius: 50%; display: grid; place-items: center; font-size: 12px; color: var(--dxql-muted); }
+.dxql .dxql-npc-auto { font-size: 10px; color: var(--dxql-muted); }
+.dxql .dxql-npc .dxql-icon-btn { width: 20px; height: 20px; font-size: 10px; }
+.dxql .dxql-npc-remove { opacity: 0; transition: opacity 0.12s; }
+.dxql .dxql-npc:hover .dxql-npc-remove, .dxql .dxql-npc:focus-within .dxql-npc-remove { opacity: 1; }
+
+/* "@" pick list of Familiar Faces & Places NPCs under a text field. */
+.dxql-npc-picker-host { position: relative; }
+.dxql-npc-picker {
+  position: absolute; z-index: 100; left: 0; top: 100%; min-width: 200px; max-width: 320px; margin: 2px 0 0; padding: 4px;
+  list-style: none; background: rgba(24, 22, 27, 0.97); color: var(--dxql-text, inherit);
+  border: 1px solid var(--dxql-border-strong, #555); border-radius: var(--dxql-radius, 6px); box-shadow: var(--dxql-shadow, 0 4px 14px rgba(0, 0, 0, 0.35));
+}
+.theme-light .dxql-npc-picker { background: rgba(250, 246, 238, 0.97); }
+.dxql-npc-picker li { display: flex; align-items: center; gap: 6px; padding: 3px 6px; border-radius: 4px; cursor: pointer; }
+.dxql-npc-picker li.is-active, .dxql-npc-picker li:hover { background: var(--dxql-accent-soft, rgba(227, 169, 79, 0.16)); }
+.dxql-npc-picker img { width: 20px; height: 20px; object-fit: cover; border: none; border-radius: 50%; }
+a.dxql-npc-link { white-space: nowrap; }
+span.dxql-npc-link.dxql-missing { font-style: normal; }
 .dxql .dxql-row-actions { display: flex; gap: 0; opacity: 0; transition: opacity 0.12s; }
 .dxql .dxql-objective:hover .dxql-row-actions,
 .dxql .dxql-objective:focus-within .dxql-row-actions,

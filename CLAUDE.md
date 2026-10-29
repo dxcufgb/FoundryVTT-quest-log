@@ -25,6 +25,12 @@ System-agnostic. No build step and no npm dependencies.
   single-value categories with their own group-by modes.
   Items needed are keyed `items.<id>` ({name, uuid, img, have, hidden, sort, createdBy}; part kind `items`), added and
   ticked in the quest window (`addItem` / `updateItem` / `deleteItem`), like objectives.
+  Related NPCs are keyed `npcs.<id>` ({name, faceId, uuid, img, auto, hidden, sort, createdBy}; part kind `npcs`).
+- `scripts/npcs.js` – Familiar Faces & Places NPCs in quest text: the `@NPC[faceId]{label}` enricher (a link only for
+  users who know the NPC there), the "@" pick list (`attachNpcPicker`, on objective inputs and the stage dialog) and
+  `mentionedFaces` / `newMentions`. `addObjective` / `updateObjective` / `addStage` / `updateStage` / `createQuest`
+  add the NPCs a text newly mentions to `npcs` in the same patch (`auto: true`; hidden when the text is hidden, or a
+  GM's link to an NPC the party doesn't know); revealing an objective or stage reveals those (`npcsRevealedWith`).
 - `scripts/apps/quest-log-tab.js` – `QuestLogTab` (HandlebarsApplicationMixin(AbstractSidebarTab)): parts `nav`
   (Quests / Quest Rewards / Notes switch, client setting `view`), `header` (search box, never re-rendered by data changes so
   typing isn't interrupted; re-rendered when the view switches), `filters`, `list`. In the rewards view

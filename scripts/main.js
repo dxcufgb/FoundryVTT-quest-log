@@ -9,6 +9,7 @@ import { registerContextMenus, addToQuestLog, addAsReward, addAsPartyNote } from
 import { exportQuests, importQuests } from "./transfer.js";
 import { DeleteAllQuestsMenu, confirmDeleteAll } from "./delete-all.js";
 import { registerQuestLinks, registerAdventureHooks, tidyStoresOnReady, importAdventureQuests, storeInAdventure } from "./adventure.js";
+import { registerNpcLinks } from "./npcs.js";
 
 /* -------------------------------------------- */
 /*  Settings and the sidebar tab                */
@@ -122,7 +123,8 @@ const NOTIFY = {
   "revealed-gallery": ["NotifyNewImage", "info"],
   "revealed-field": ["NotifyNewInfo", "info"],
   "revealed-locations": ["NotifyNewInfo", "info"],
-  "revealed-items": ["NotifyNewItem", "info"]
+  "revealed-items": ["NotifyNewItem", "info"],
+  "revealed-npcs": ["NotifyNewNpc", "info"]
 };
 
 const NOTIFY_REWARD = {
@@ -247,6 +249,7 @@ Hooks.once("init", () => {
   registerSidebarTab();
   registerContextMenus();
   registerQuestLinks();
+  registerNpcLinks();
   registerAdventureHooks();
 });
 
@@ -269,6 +272,7 @@ Hooks.once("ready", async () => {
       setStatus: store.setStatus,
       addObjective: store.addObjective,
       addItem: store.addItem,
+      addNpc: store.addNpc,
       addNote: store.addNote,
       exportQuests,
       importQuests,

@@ -7,6 +7,7 @@ import { tokenize, markTerms } from "../search.js";
 import { uploadImages, pickFiles, browseImage, canBrowse, filesFromEvent, urlFromDrop, showImage } from "../images.js";
 import { RewardSheet, splitRewardText } from "./reward-sheet.js";
 import { PartyNoteSheet } from "./party-note-sheet.js";
+import { attachNpcPicker, knownFaces, knownFace, facesActive } from "../npcs.js";
 
 const { ApplicationV2, HandlebarsApplicationMixin, DialogV2 } = foundry.applications.api;
 
@@ -67,6 +68,9 @@ export class QuestSheet extends HandlebarsApplicationMixin(ApplicationV2) {
       deleteItem: QuestSheet.#onDeleteItem,
       openItem: QuestSheet.#onOpenItem,
       toggleNewItemHidden: QuestSheet.#onToggleNewItemHidden,
+      addNpc: QuestSheet.#onAddNpc,
+      deleteNpc: QuestSheet.#onDeleteNpc,
+      openNpc: QuestSheet.#onOpenNpc,
       addGalleryImage: QuestSheet.#onAddGalleryImage,
       browseGalleryImage: QuestSheet.#onBrowseGalleryImage,
       removeImage: QuestSheet.#onRemoveImage,
@@ -171,6 +175,7 @@ export class QuestSheet extends HandlebarsApplicationMixin(ApplicationV2) {
     this.newObjectiveHidden = false;
     this.newItem = "";
     this.newItemHidden = false;
+    this.newNpc = "";
     this.noteFilter = "all";
     this.newObjective = "";
     this.newObjectiveStage = "";
@@ -273,7 +278,7 @@ export class QuestSheet extends HandlebarsApplicationMixin(ApplicationV2) {
 
     const secret = Object.fromEntries(HIDEABLE_FIELDS.map(f => [f, quest.hiddenFields.includes(f)]));
     const hiddenParts = quest.hiddenFields.length
-      + ["stages", "objectives", "notes", "gallery", "locations", "items"].reduce((n, k) => n + quest[k].filter(p => p.hidden).length, 0);
+      + ["stages", "objectives", "notes", "gallery", "locations", "items", "npcs"].reduce((n, k) => n + quest[k].filter(p => p.hidden).length, 0);
     const total = quest.objectives.length;
     const done = quest.objectives.filter(o => o.done).length;
     const objectives = [];
@@ -364,6 +369,17 @@ export class QuestSheet extends HandlebarsApplicationMixin(ApplicationV2) {
       itemsHave: quest.items.filter(i => i.have).length,
       newItem: this.newItem,
       newItemHidden: this.newItemHidden,
+      npcs: quest.npcs.map(n => {
+        // Familiar Faces & Places: the NPC itself if the user knows it there, else one with the same name.
+        const face = knownFace(n.faceId);
+        const faces = face ? { kind: "faces", id: face.id } : facesEntry("npc", n.name);
+        return { ...n, img: n.img || face?.img || "", faces, canDelete: store.canDelete(n.createdBy) };
+      }),
+      newNpc: this.newNpc,
+      npcSuggestions: knownFaces().map(f => f.name)
+        .filter(name => !quest.npcs.some(n => n.name.toLowerCase() === name.toLowerCase()))
+        .sort((a, b) => a.localeCompare(b)),
+      facesActive: facesActive(),
       gallery: quest.gallery.map(g => ({ ...g, canDelete: store.canDelete(g.createdBy) })),
       galleryUploading: this.galleryUploading > 0,
       composer: this.composer,
@@ -417,6 +433,8 @@ export class QuestSheet extends HandlebarsApplicationMixin(ApplicationV2) {
       const evt = field.type === "checkbox" ? "change" : "input";
       field.addEventListener(evt, () => this.#bind(field));
     }
+    // "@" + a name in objectives offers Familiar Faces & Places NPCs (before the Enter-to-save listeners below).
+    for (const field of root.querySelectorAll("[data-npc-picker-field]")) attachNpcPicker(field);
     for (const field of root.querySelectorAll("[data-keys]")) {
       field.addEventListener("keydown", event => this.#onKeyDown(event, field.dataset.keys));
     }
@@ -513,6 +531,9 @@ export class QuestSheet extends HandlebarsApplicationMixin(ApplicationV2) {
     } else if (kind === "newItem" && enter) {
       event.preventDefault();
       QuestSheet.#onAddItem.call(this);
+    } else if (kind === "newNpc" && enter) {
+      event.preventDefault();
+      QuestSheet.#onAddNpc.call(this);
     } else if (kind === "objectiveEdit") {
       if (enter) { event.preventDefault(); this.#saveObjective(); }
       if (event.key === "Escape") { event.preventDefault(); event.stopPropagation(); this.editObjective = null; this.render(); }
@@ -593,6 +614,16 @@ export class QuestSheet extends HandlebarsApplicationMixin(ApplicationV2) {
         Object.assign(this.draft, giver);
         this.render();
       } else await store.updateQuest(this.questId, giver);
+      return;
+    }
+    if (kind === "npcs") {
+      if (!["Actor", "Token"].includes(data?.type)) return;
+      const doc = await fromUuid(data.uuid).catch(() => null);
+      const actor = doc?.actor ?? doc;
+      if (!actor) return;
+      const name = doc.name ?? actor.name;
+      const face = knownFaces().find(f => f.actor === actor.uuid) ?? knownFaces().find(f => f.name.toLowerCase() === String(name).toLowerCase());
+      await store.addNpc(this.questId, { name, faceId: face?.id ?? "", uuid: actor.uuid, img: actor.img ?? "" });
       return;
     }
     if (kind === "items") {
@@ -690,7 +721,7 @@ export class QuestSheet extends HandlebarsApplicationMixin(ApplicationV2) {
   static async #onTogglePart(event, target) {
     event.stopPropagation();
     const { kind, partId } = target.dataset;
-    const list = { stages: "stages", objectives: "objectives", notes: "notes", gallery: "gallery", locations: "locations", items: "items" }[kind];
+    const list = { stages: "stages", objectives: "objectives", notes: "notes", gallery: "gallery", locations: "locations", items: "items", npcs: "npcs" }[kind];
     const part = list && this.quest?.[list].find(p => p.id === partId);
     if (part) await store.setPartHidden(this.questId, kind, partId, !part.hidden);
   }
@@ -846,6 +877,10 @@ export class QuestSheet extends HandlebarsApplicationMixin(ApplicationV2) {
           <i class="fa-solid fa-eye-slash" inert></i> ${escapeHTML(t("HiddenFromPlayers"))}</label>` : ""}
       </div>`,
       rejectClose: false,
+      // "@" + a name offers Familiar Faces & Places NPCs.
+      render: (event, dialog) => {
+        for (const field of dialog.element.querySelectorAll("input[name=title], textarea[name=text]")) attachNpcPicker(field);
+      },
       buttons: [
         { action: "cancel", label: "Cancel", icon: "fa-solid fa-xmark" },
         {
@@ -944,6 +979,34 @@ export class QuestSheet extends HandlebarsApplicationMixin(ApplicationV2) {
     this.newItemHidden = !this.newItemHidden;
     this._focusNext = "[data-bind=newItem]";
     this.render();
+  }
+
+  /* -------------------------------------------- */
+  /*  Actions: related NPCs                       */
+  /* -------------------------------------------- */
+
+  static async #onAddNpc() {
+    const name = this.newNpc.trim();
+    if (!name) return;
+    this.newNpc = "";
+    this._focusNext = "[data-bind=newNpc]";
+    const face = knownFaces().find(f => f.name.toLowerCase() === name.toLowerCase());
+    const added = await store.addNpc(this.questId, { name: face?.name ?? name, faceId: face?.id ?? "", uuid: face?.actor ?? "", img: face?.img ?? "" });
+    if (!added) this.render();
+  }
+
+  static async #onDeleteNpc(event, target) {
+    await store.deleteNpc(this.questId, target.closest("[data-npc-id]").dataset.npcId);
+  }
+
+  /** Opens a related NPC: its Familiar Faces & Places page, or else its actor. */
+  static async #onOpenNpc(event, target) {
+    const { facesKind, facesId } = target.dataset;
+    if (facesId) return openFacesEntry(facesKind, facesId);
+    const npc = this.quest?.npcs.find(n => n.id === target.closest("[data-npc-id]")?.dataset.npcId);
+    const doc = await fromUuid(npc?.uuid ?? "").catch(() => null);
+    if (doc?.testUserPermission(game.user, "LIMITED")) doc.sheet.render({ force: true });
+    else ui.notifications.info(t("NoAccess"));
   }
 
   /* -------------------------------------------- */
