@@ -15,6 +15,23 @@ export const STATUS_ICONS = {
   failed: "fa-solid fa-circle-xmark"
 };
 
+/** Quest rewards: active (can be used) or claimed (used up, or put away by hand). */
+export const REWARD_STATUSES = ["active", "claimed"];
+/** What a reward can be linked to. */
+export const LINK_TYPES = ["place", "npc", "faction", "other"];
+export const LINK_ICONS = {
+  place: "fa-solid fa-location-dot",
+  npc: "fa-solid fa-user",
+  faction: "fa-solid fa-flag",
+  other: "fa-solid fa-link"
+};
+export const REWARD_STATUS_ICONS = {
+  active: "fa-solid fa-gift",
+  claimed: "fa-solid fa-box-archive"
+};
+/** Most uses a reward can have (0 = unlimited). */
+export const MAX_USES = 999;
+
 export const NOTE_ICONS = {
   note: "fa-solid fa-note-sticky",
   clue: "fa-solid fa-magnifying-glass"

@@ -171,7 +171,9 @@
       "SelectionClue": "Add selection as a clue…",
       "SelectionObjective": "Add selection as an objective…",
       "SelectionQuest": "Start a new quest from selection",
-      "Copy": "Copy"
+      "Copy": "Copy",
+      "AddReward": "Add as a Quest Reward…",
+      "SelectionReward": "Add selection as a quest reward…"
     },
     "NotifyCreated": "New quest: {title} (added by {name})",
     "NotifyRevealed": "New quest: {title}",
@@ -203,6 +205,10 @@
         "Name": "Delete all quests",
         "Label": "Delete all quests…",
         "Hint": "Deletes every quest in the log, hidden ones included, with their objectives, notes, clues and images. Asks for confirmation first and lets you export the log before deleting. It can't be undone."
+      },
+      "OfferRewards": {
+        "Name": "Offer quest rewards on completion",
+        "Hint": "When a quest with a reward is completed, ask the GM whether to add anything from its reward to the party's Quest Rewards. Only GMs are asked: the GM who completed the quest, or (when a player completed it) the GM in charge."
       }
     },
     "Transfer": {
@@ -228,9 +234,13 @@
       "MergeHint": "The quests are added next to the ones already in the log.",
       "MergeHintOverlap": "The quests are added next to the ones already in the log. {count} of them are already in it and are replaced by the version in the file.",
       "Replace": "Replace the whole quest log",
-      "ReplaceHint": "Deletes the {count} quests in the log now and keeps only the ones in the file.",
+      "ReplaceHint": "Deletes the {count} quests in the log now and keeps only the ones in the file. If the file has quest rewards, the rewards are replaced the same way.",
       "ReplaceConfirm": "This deletes all <b>{count}</b> quests in the log now, with their notes, clues and objectives, and can't be undone. Export the log first if you might want them back. Replace it?",
-      "Imported": "Imported {count} quests."
+      "Imported": "Imported {count} quests.",
+      "IncludeRewards": "Quest rewards",
+      "ExportedWithRewards": "Exported {count} quests and {rewards} quest rewards.",
+      "ImportSummaryRewards": "<b>{count}</b> quests and <b>{rewards}</b> quest rewards in <b>{file}</b>.",
+      "ImportedWithRewards": "Imported {count} quests and {rewards} quest rewards."
     },
     "HideFieldHint": "Hide this from players",
     "FieldHiddenHint": "Hidden from players – click to show it to them",
@@ -302,7 +312,137 @@
       "Word": "DELETE",
       "Delete": "Delete all quests",
       "Empty": "The quest log is already empty.",
-      "Done": "Deleted all {count} quests from the quest log."
+      "Done": "Deleted all {count} quests from the quest log.",
+      "AlsoRewards": "Also delete all {count} quest rewards",
+      "RewardsDone": "Deleted all {count} quest rewards."
+    },
+    "QuestsTab": "Quests",
+    "ViewTabs": "Quests or quest rewards",
+    "Reward": {
+      "Tab": "Quest Rewards",
+      "Untitled": "Unnamed reward",
+      "New": "New Reward",
+      "NewHint": "Add a reward the party got",
+      "Create": "Add Reward",
+      "Edit": "Edit reward",
+      "Delete": "Delete reward",
+      "DeleteConfirm": "Delete the reward <b>{name}</b> and its log of uses? This can't be undone.",
+      "Gone": "This reward has been deleted.",
+      "NameRequired": "Give the reward a name.",
+      "UsesRequired": "Give the number of uses (or choose No limit).",
+      "Search": "Search the quest rewards",
+      "SearchPlaceholder": "Search rewards…",
+      "StatusFilter": "Show rewards by status",
+      "Status": {
+        "active": "Active",
+        "claimed": "Claimed",
+        "all": "All"
+      },
+      "GroupByLabel": "Group rewards by",
+      "GroupBy": {
+        "none": "No grouping",
+        "quest": "Quest",
+        "place": "Place",
+        "npc": "NPC",
+        "faction": "Faction",
+        "other": "Other link"
+      },
+      "GroupUnknown": {
+        "quest": "Not from a quest",
+        "place": "No place",
+        "npc": "No NPC",
+        "faction": "No faction",
+        "other": "No other link"
+      },
+      "Empty": "No quest rewards yet. Add the things the party gets and can use later.",
+      "NoMatches": "No rewards match your search.",
+      "EmptyStatus": {
+        "active": "No active rewards.",
+        "claimed": "No claimed rewards yet.",
+        "all": "No quest rewards yet."
+      },
+      "Unlimited": "No limit",
+      "UsesLeft": "{left}/{max} uses",
+      "UsedUp": "Used up",
+      "Claimed": "Claimed",
+      "ClaimedOn": "Claimed on {date}",
+      "Use": "Use",
+      "UseHint": "Use it once (one use is counted down)",
+      "UseOnce": "Use once",
+      "UndoUse": "Undo last use",
+      "UndoUseHint": "Take back the last use (if it was a mistake)",
+      "Refill": "Refill",
+      "RefillHint": "Fill all uses again",
+      "MarkClaimed": "Mark claimed",
+      "Restore": "Make active again",
+      "OpenQuest": "Open the quest",
+      "CopyLink": "Copy reward link",
+      "LinkCopied": "Copied {link}. Paste it into a journal page or chat to link this reward.",
+      "LinkUnknown": "Unknown reward",
+      "LinkNotInLog": "This reward isn't in the quest rewards.",
+      "LinkUnavailable": "You can't see that reward.",
+      "History": "Used",
+      "FromThisQuest": "Quest rewards",
+      "AddFromQuest": "Add Reward",
+      "AddFromQuestHint": "Add a quest reward from this quest, with its quest giver and places as links",
+      "NoQuest": "Not from a quest",
+      "NoLimit": "No limit",
+      "Limited": "Limited uses",
+      "KeptHidden": "The reward is hidden from players while its quest is hidden.",
+      "QuestHidden": "The reward's quest is hidden from players. Reveal the quest first, or remove the link to it.",
+      "LinkTypeLabel": "What it is linked to",
+      "ChangeLinkType": "{type} – click to change",
+      "RemoveLink": "Remove this link",
+      "Linked": "Linked to a document: click it in the reward window to open it",
+      "LinkType": {
+        "place": "Place",
+        "npc": "NPC",
+        "faction": "Faction",
+        "other": "Other"
+      },
+      "LinkTypes": {
+        "place": "Places",
+        "npc": "NPCs",
+        "faction": "Factions",
+        "other": "Linked to"
+      },
+      "Field": {
+        "Name": "Reward",
+        "Uses": "Uses",
+        "MaxUses": "Number of uses",
+        "UsesLeft": "Uses left",
+        "Quest": "From quest",
+        "Links": "Linked to"
+      },
+      "Placeholder": {
+        "Name": "e.g. Favour of the Harbour Guild",
+        "UsesLeft": "All",
+        "Link": "A place, NPC or faction – press Enter",
+        "Description": "What it is, and how the party can use it."
+      },
+      "Hint": {
+        "Item": "Drop an item here to use its name, image and a link to it.",
+        "Image": "Upload an image (or drop one here)",
+        "Uses": "A reward is received with all its uses. Each use counts one down; when none are left, it moves to the claimed rewards. Changing the number of uses keeps the uses already spent.",
+        "NoLimit": "Available for as long as the party plays.",
+        "Links": "Pick what it is (place, NPC, faction, other), type a name and press Enter. Drop actors, scenes or journal entries here to link them; click a link's icon to change what it is.",
+        "Hidden": "Players can't see the reward until you reveal it."
+      },
+      "Offer": {
+        "Title": "Quest rewards",
+        "Body": "<b>{title}</b> is completed. Add anything from its reward to the party's Quest Rewards?",
+        "Keep": "Add this",
+        "Hint": "Untick what shouldn't be added and fix the names if needed. Each item opens a reward form filled in from the quest; nothing is added until you save it.",
+        "Already": "{count} rewards from this quest are already in the Quest Rewards.",
+        "No": "No",
+        "Yes": "Yes, add rewards"
+      },
+      "NotifyCreated": "New quest reward: {title} (added by {name})",
+      "NotifyRevealed": "New quest reward: {title}",
+      "NotifyUsed": "{name} used {title} ({left}/{max} uses left)",
+      "NotifyUsedUp": "{name} used the last use of {title}; it was moved to the claimed rewards.",
+      "NotifyClaimed": "Reward claimed: {title}",
+      "NotifyRestored": "Reward active again: {title}"
     }
   }
 }

@@ -1192,3 +1192,194 @@ a.dxql-quest-link > i { color: #c98a2c; font-size: 0.85em; }
 .dxql .dxql-type-icon.type-main { color: var(--dxql-accent); }
 .dxql .dxql-type-icon.type-side { color: var(--dxql-clue); }
 .dxql .dxql-place:hover .dxql-eye { opacity: 1; }
+
+/* ==========================================================================
+   Quest Rewards
+   ========================================================================== */
+
+/* Quests / Quest Rewards switch at the top of the tab */
+.dxql-tab .dxql-view-tabs {
+  flex: none;
+  display: flex;
+  gap: 2px;
+  margin: 8px 8px 0;
+  padding: 2px;
+  border-radius: var(--dxql-radius);
+  background: var(--dxql-surface-2);
+}
+.dxql .dxql-view-tab {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: auto;
+  height: auto;
+  min-height: 0;
+  margin: 0;
+  padding: 5px 6px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  box-shadow: none;
+  color: var(--dxql-muted);
+  font-family: inherit;
+  font-size: var(--font-size-13, 0.8125rem);
+  font-weight: 700;
+  line-height: 1.2;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.dxql .dxql-view-tab:hover { color: var(--dxql-strong); background: var(--dxql-hover); }
+.dxql .dxql-view-tab.active { background: var(--dxql-accent); color: var(--dxql-on-accent); }
+.dxql .dxql-view-tab.active .dxql-count { background: rgba(0, 0, 0, 0.18); color: inherit; }
+.dxql .dxql-view-tab i { margin: 0; }
+.dxql .dxql-view-tab > span:not(.dxql-count) { overflow: hidden; text-overflow: ellipsis; }
+
+.dxql .dxql-status-tab.reward-status-claimed.active { box-shadow: inset 0 -2px 0 var(--dxql-muted); }
+
+/* Reward cards in the list */
+.dxql .dxql-reward { align-items: flex-start; }
+.dxql .dxql-reward.reward-claimed { border-left-color: var(--dxql-border-strong); }
+.dxql .dxql-reward.reward-claimed .dxql-quest-title span { color: var(--dxql-muted); }
+.dxql .dxql-reward.reward-claimed .dxql-reward-icon { opacity: 0.6; filter: grayscale(0.7); }
+.dxql .dxql-reward-icon {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: var(--dxql-radius);
+  border: 1px solid var(--dxql-border);
+  background: var(--dxql-accent-soft);
+  color: var(--dxql-accent);
+  font-size: 15px;
+  overflow: hidden;
+}
+.dxql .dxql-reward-icon img { width: 100%; height: 100%; object-fit: cover; border: none; }
+.dxql .dxql-reward-icon i { margin: 0; }
+
+.dxql .dxql-uses-row { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 8px; }
+.dxql .dxql-uses-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--dxql-text);
+  font-size: var(--font-size-11, 0.6875rem);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.dxql .dxql-uses-label.unlimited { color: var(--dxql-success); }
+.dxql .dxql-uses-label.claimed { color: var(--dxql-muted); }
+.dxql .dxql-uses-label i { font-size: 0.9em; margin: 0; }
+
+.dxql .dxql-pips { display: inline-flex; flex-wrap: wrap; gap: 3px; }
+.dxql .dxql-pip {
+  display: block;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  border: 1.5px solid var(--dxql-accent);
+  background: transparent;
+}
+.dxql .dxql-pip.full { background: var(--dxql-accent); }
+.dxql .dxql-pips.large { gap: 5px; justify-content: center; }
+.dxql .dxql-pips.large .dxql-pip { width: 14px; height: 14px; border-width: 2px; }
+
+.dxql button.dxql-use-btn {
+  flex: none;
+  width: auto;
+  height: 22px;
+  min-height: 0;
+  margin: 0 0 0 auto;
+  padding: 0 9px;
+  border: 1px solid var(--dxql-accent);
+  border-radius: 999px;
+  background: var(--dxql-accent-soft);
+  color: var(--dxql-accent);
+  box-shadow: none;
+  font-family: inherit;
+  font-size: var(--font-size-11, 0.6875rem);
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+}
+.dxql button.dxql-use-btn:hover { background: var(--dxql-accent); color: var(--dxql-on-accent); }
+.dxql button.dxql-use-btn i { margin: 0 2px 0 0; }
+
+/* Reward window */
+.dxql .dxql-reward-hero.reward-claimed { background: linear-gradient(180deg, var(--dxql-surface-2), transparent 85%); }
+.dxql .dxql-status-badge.reward-claimed { background: var(--dxql-surface-2); color: var(--dxql-muted); }
+.dxql .dxql-reward-heading { display: flex; align-items: center; gap: 12px; }
+.dxql .dxql-reward-heading .dxql-title { flex: 1; }
+.dxql .dxql-reward-img {
+  flex: none;
+  width: 64px;
+  height: 64px;
+  object-fit: cover;
+  border-radius: var(--dxql-radius);
+  border: 1px solid var(--dxql-border-strong);
+  cursor: zoom-in;
+}
+.dxql .dxql-uses-panel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--dxql-border);
+  border-radius: var(--dxql-radius);
+  background: var(--dxql-surface);
+  text-align: center;
+}
+.dxql .dxql-uses-panel .dxql-hint { margin: 0; }
+.dxql .dxql-uses-big {
+  color: var(--dxql-strong);
+  font-size: 1.25rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.dxql .dxql-uses-panel.unlimited .dxql-uses-big { color: var(--dxql-success); }
+.dxql .dxql-uses-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; }
+.dxql .dxql-uses-actions button { width: auto; height: 28px; padding: 0 12px; white-space: nowrap; }
+.dxql .dxql-reward-history ol { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 3px; }
+.dxql .dxql-reward-history li { display: flex; align-items: center; gap: 8px; }
+.dxql .dxql-reward-history time { color: var(--dxql-muted); font-size: var(--font-size-11, 0.6875rem); }
+.dxql .dxql-place a { cursor: pointer; color: var(--color-text-hyperlink, var(--dxql-accent)); }
+
+/* Reward form */
+.dxql .dxql-reward-top { display: flex; align-items: flex-start; gap: 12px; }
+.dxql .dxql-reward-top > .dxql-field { flex: 1; padding: 4px; margin: -4px; border-radius: var(--dxql-radius); }
+.dxql .dxql-reward-image { flex: none; display: flex; flex-direction: column; align-items: center; gap: 4px; border-radius: var(--dxql-radius); }
+.dxql .dxql-reward-image .dxql-thumb { width: 72px; height: 72px; }
+.dxql .dxql-uses-inputs { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 4px; }
+.dxql .dxql-uses-inputs label { display: flex; align-items: center; gap: 6px; color: var(--dxql-text); font-size: var(--font-size-12, 0.75rem); }
+.dxql .dxql-uses-inputs input { width: 72px; height: 28px; }
+.dxql .dxql-link-type { flex: 0 0 auto; width: auto; max-width: 40%; height: 32px; }
+.dxql .dxql-link .dxql-linked { font-size: 0.8em; color: var(--dxql-muted); }
+.dxql .dxql-link .dxql-place-btn:first-child { color: var(--dxql-accent); }
+
+/* Quest window: rewards from this quest */
+.dxql .dxql-quest-rewards a.reward-active i { color: var(--dxql-accent); }
+.dxql .dxql-quest-rewards a.reward-claimed { color: var(--dxql-muted); }
+.dxql .dxql-quest-rewards .dxql-hint { margin: 0; }
+
+/* "Add rewards from this quest?" dialog */
+.dxql-reward-offer { display: flex; flex-direction: column; gap: 8px; }
+.dxql-reward-offer p { margin: 0; }
+.dxql-reward-offer .dxql-offer-reward {
+  padding: 6px 9px;
+  border-radius: var(--dxql-radius);
+  background: var(--dxql-surface-2);
+  color: var(--dxql-strong);
+  overflow-wrap: anywhere;
+}
+.dxql-reward-offer .dxql-offer-reward i { color: var(--dxql-accent); }
+.dxql-reward-offer .dxql-offer-items { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.dxql-reward-offer .dxql-offer-item { display: flex; align-items: center; gap: 8px; }
+.dxql-reward-offer .dxql-offer-item input[type=text] { flex: 1; }
+.dxql-reward-offer .dxql-offer-item:has(input[type=checkbox]:not(:checked)) input[type=text] { opacity: 0.5; text-decoration: line-through; }
+
+/* @Reward[id]{label} links */
+a.dxql-reward-link > i { color: #c98a2c; }

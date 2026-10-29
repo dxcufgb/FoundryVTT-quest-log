@@ -1,10 +1,11 @@
 import {
-  MODULE_ID, TEMPLATE_PATH, STATUS_ICONS, NOTE_ICONS, HIDEABLE_FIELDS, QUEST_TYPES, t, cleanLine, tagHue, cleanTag, enrich, formatDate, userInfo,
+  MODULE_ID, TEMPLATE_PATH, STATUS_ICONS, NOTE_ICONS, REWARD_STATUS_ICONS, HIDEABLE_FIELDS, QUEST_TYPES, t, cleanLine, tagHue, cleanTag, enrich, formatDate, userInfo,
   locationSuggestions, currentSceneName, getDropData, linkForDrop, insertAtCursor, randomId, escapeHTML
 } from "../util.js";
 import * as store from "../store.js";
 import { tokenize, markTerms } from "../search.js";
 import { uploadImages, pickFiles, browseImage, canBrowse, filesFromEvent, urlFromDrop, showImage } from "../images.js";
+import { RewardSheet, splitRewardText } from "./reward-sheet.js";
 
 const { ApplicationV2, HandlebarsApplicationMixin, DialogV2 } = foundry.applications.api;
 
@@ -78,7 +79,9 @@ export class QuestSheet extends HandlebarsApplicationMixin(ApplicationV2) {
       attachEditImage: QuestSheet.#onAttachEditImage,
       removeEditImage: QuestSheet.#onRemoveEditImage,
       openSource: QuestSheet.#onOpenSource,
-      openRelated: QuestSheet.#onOpenRelated
+      openRelated: QuestSheet.#onOpenRelated,
+      openReward: QuestSheet.#onOpenReward,
+      addReward: QuestSheet.#onAddReward
     }
   };
 
@@ -353,6 +356,10 @@ export class QuestSheet extends HandlebarsApplicationMixin(ApplicationV2) {
       notes,
       noteEmpty: t(this.noteFilter === "clue" ? "NoClues" : "NoNotes"),
       related,
+      rewards: store.rewardsForQuest(quest.id).sort((a, b) => a.createdAt - b.createdAt).map(r => ({
+        id: r.id, name: r.name, status: r.status, hidden: r.hidden, statusIcon: REWARD_STATUS_ICONS[r.status],
+        usesLabel: r.unlimited ? t("Reward.Unlimited") : t("Reward.UsesLeft", { left: r.usesLeft, max: r.maxUses })
+      })),
       createdBy: userInfo(quest.createdBy, quest.authorName).name,
       createdAt: new Date(quest.createdAt || Date.now()).toLocaleDateString()
     });
@@ -985,6 +992,20 @@ export class QuestSheet extends HandlebarsApplicationMixin(ApplicationV2) {
 
   static #onOpenRelated(event, target) {
     QuestSheet.open(target.dataset.questId);
+  }
+
+  static #onOpenReward(event, target) {
+    RewardSheet.open(target.dataset.rewardId);
+  }
+
+  /** A new reward form filled in from this quest (its first reward item, giver and places). */
+  static #onAddReward() {
+    const quest = this.quest;
+    if (!quest) return;
+    const items = splitRewardText(quest.reward);
+    const taken = new Set(store.rewardsForQuest(quest.id).map(r => r.name.toLowerCase()));
+    const item = items.find(i => !taken.has(i.toLowerCase())) ?? "";
+    RewardSheet.createNew(RewardSheet.prefillFromQuest(quest, item));
   }
 }
 

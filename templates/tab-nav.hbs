@@ -1,0 +1,8 @@
+<nav class="dxql-view-tabs" aria-label="{{localize "DXQL.ViewTabs"}}">
+  {{#each views}}
+  <button type="button" class="dxql-view-tab view-{{id}} {{#if active}}active{{/if}}" data-action="setView" data-view="{{id}}"
+          aria-pressed="{{active}}">
+    <i class="{{icon}}" inert></i> <span>{{label}}</span> {{#if count}}<span class="dxql-count">{{count}}</span>{{/if}}
+  </button>
+  {{/each}}
+</nav>
