@@ -327,14 +327,14 @@ Hooks.on("updateJournalEntry", (doc, changes, options, userId) => {
   }
 });
 
-// NPCs and places in Dxcufgb's Familiar Faces & Places are linked by name from the open sheets: refresh their links
-// when someone adds, renames or removes one there (its entries are flags on its own store journals).
+// NPCs, places and factions in Dxcufgb's Familiar Faces & Places are linked by name from the open sheets: refresh
+// their links when someone adds, renames or removes one there (its entries are flags on its own store journals).
 let facesRefresh = null;
 function onFacesChange(doc, changes) {
   try {
     if (!game.modules.get(FACES_ID)?.active || !doc.flags?.[FACES_ID]) return;
     const flags = changes?.flags?.[FACES_ID];
-    if (changes && !(flags && Object.keys(flags).some(k => /^(-=)?(faces|places)$/.test(k)))) return;
+    if (changes && !(flags && Object.keys(flags).some(k => /^(-=)?(faces|places|factions)$/.test(k)))) return;
     clearTimeout(facesRefresh);
     facesRefresh = setTimeout(() => {
       QuestSheet.refreshAll();
