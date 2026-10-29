@@ -8,7 +8,7 @@
 
 <a href="https://dxcufgb.github.io/FVTT-dev-showcase/"><img src="https://dxcufgb.github.io/FVTT-dev-showcase/assets/img/workshop-badge.png" alt="Dxcufgb's Workshop: every Foundry VTT project, video and changelog in one place" width="650"></a>
 
-A shared quest log for the whole table, in its own tab in the right sidebar. Players and the GM add quests, write down where they were picked up, who gave them and where they take place, keep notes and clues, add objectives as they come up and tick them off. Everything is searchable, and quests can be grouped by location, quest giver or tag. A second view, **Quest Rewards**, keeps track of what the party got and can use later, with a count of uses left.
+A shared quest log for the whole table, in its own tab in the right sidebar. Players and the GM add quests, write down where they were picked up, who gave them and where they take place, keep notes and clues, add objectives as they come up and tick them off. Everything is searchable, and quests can be grouped by location, quest giver or tag. A second view, **Quest Rewards**, keeps track of what the party got and can use later, with a count of uses left, and a third, **Notes**, holds the party's own notes, about a quest or on their own.
 
 **Foundry VTT:** v13 · **System:** any
 
@@ -24,7 +24,7 @@ The first time a GM opens the world after enabling the module, the quest log is 
 
 ## Features
 
-- **Quest Log tab in the right sidebar** (the scroll icon, next to Game Settings) for every player and the GM. Right-click the tab icon to pop it out into its own window. The switch at the top of the tab shows either the **Quests** or the **Quest Rewards** (see below); each shows how many are active.
+- **Quest Log tab in the right sidebar** (the scroll icon, next to Game Settings) for every player and the GM. Right-click the tab icon to pop it out into its own window. The switch at the top of the tab shows the **Quests**, the **Quest Rewards** or the **Notes** (see below); each shows how many are active (for Notes: how many there are).
 - **Quests** have a title, a **type** (*Main quest* or *Side quest*), a **chapter**, a **quest giver**, where they were **acquired**, the **places** they take place at, an optional **reward**, a **description**, **tags**, **objectives**, **images** and a log of **notes and clues**.
   - **Main quest / Side quest** and **Chapter** are categories of their own (one per quest), not tags: pick the type at the top of the edit form and type the chapter (it suggests the chapters already used). Main quests have a crown, side quests a compass, in the list and on the quest.
   - Worlds whose quests use tags for this (*Main quest*, *Side quest*, *Main story*, *Chapter 3* …) get a one-time question for the GM: **Convert** turns those tags into the categories (only for quests that don't have a type or chapter yet; other tags stay), *Ask me later* asks at the next start, *Keep the tags* never asks again. It can also be run from a macro: `game.modules.get("dxcufgbs-quest-log").api.convertCategoryTags()`.
@@ -61,10 +61,20 @@ The first time a GM opens the world after enabling the module, the quest log is 
   - The quest window lists the rewards that came from the quest, with an *Add Reward* button that fills in the form from the quest (its reward text, quest giver and places).
   - **When a quest is completed** and has something in its *Reward* field, the GM is asked whether to add it to the Quest Rewards (setting *Offer quest rewards on completion*). The reward text is split into items (*200 gp, 3x Potion of Healing, Wand of Webs (7 charges)*): untick what shouldn't be added, fix the names, and each item opens a reward form filled in from the quest (name, number of uses, the quest, its quest giver and places as links) for the GM to check and save. Only GMs are asked: the GM who completed the quest, or the GM in charge when a player completed it.
   - **Hidden rewards (GM)**: like quests, a reward can be hidden from players and revealed later. A reward from a hidden quest stays hidden until the quest is revealed.
-- **Notifications** when someone adds, reveals, completes, fails or reopens a quest, and when a quest reward is added, revealed, used or used up (setting).
+- **Notes**: the third view of the tab, for anything the party wants to remember that isn't a quest: rumours, names, a map someone drew, the plan for tomorrow. Players and the GM add them with *New Note*.
+  - A note has a **title**, its **text** (drop actors, items, journal entries or scenes into it to link them), **images** (upload, paste into the text, drop files, or pick one on the server), **tags**, **links** to places, NPCs, factions and other things (the same as a reward's), and optionally the **quest it is about**. A note without a quest is a *general* note.
+  - Everyone can **edit** any note; the note window shows who wrote it and who last edited it. Images can also be added and removed straight from the note window without opening the edit form.
+  - **Pin** a note to keep it at the top of the list (the pin on the card, or in the note window).
+  - **Share** posts the note to the chat for everyone (its title, text, images and a link that opens it).
+  - The list has *All*, *Pinned*, *Quests* (notes about a quest) and *General* filters, a search (titles, text, tags, links, the quest and who wrote it), can be grouped by *Quest*, *Tag*, *Written by*, *Place*, *NPC*, *Faction* or *Other link*, and clicking a tag shows only notes with that tag.
+  - Right-click a note for *Open*, *Pin* / *Unpin*, *Share in chat*, *Open the quest*, *Copy note link* (`@PartyNote[id]{label}` for journals and chat), *Hide from players* / *Reveal to players* (GM) and *Delete*.
+  - Right-click a **chat message**, a **journal entry** or a **journal page** → *Add as a Note…*, or select text and choose *Add selection as a note in Notes…*, to open the note form filled in from it.
+  - The quest window lists the party's notes about the quest, with an *Add Note* button.
+  - **Hidden notes (GM)**: a note can be hidden from players and revealed later, e.g. a handout prepared before the session. A note about a hidden quest stays hidden until the quest is revealed.
+- **Notifications** when someone adds, reveals, completes, fails or reopens a quest, when a quest reward is added, revealed, used or used up, and when a note is added or revealed (setting).
 - **Import / export (GM)**: the two buttons next to *Group by* in the Quest Log tab.
-  - **Export** saves the log as a JSON file; choose which statuses to include, whether to include the quest rewards, and whether to include hidden quests, hidden rewards and hidden parts (left out, the file has only what players can see).
-  - **Import** reads such a file and either **adds** its quests and rewards to the log (one that is already in the log is replaced by the version in the file) or **replaces the whole log** (asks again before deleting anything; the rewards are replaced only when the file has rewards). Hidden quests and rewards stay hidden.
+  - **Export** saves the log as a JSON file; choose which statuses to include, whether to include the quest rewards and the notes, and whether to include hidden quests, hidden rewards, hidden notes and hidden parts (left out, the file has only what players can see).
+  - **Import** reads such a file and either **adds** its quests, rewards and notes to the log (one that is already in the log is replaced by the version in the file) or **replaces the whole log** (asks again before deleting anything; the rewards and the notes are replaced only when the file has them). Hidden quests, rewards and notes stay hidden.
   Author names are saved in the file, so notes imported into another world still show who wrote them. Images are saved as file paths, not embedded: copy the image folder along when moving to another server.
 - **Quests that come with an adventure**: an Adventure compendium can carry a ready-made quest log. When a GM imports the adventure, its quests are added to the log, **hidden from players** (unless the adventure marks a quest as visible), ready for the GM to reveal when the party gets there. Quests that are already in the log are left as they are, so importing the adventure again never resets the party's progress (a quest you deleted comes back, though). Turn it off with *Import quests from adventures*.
   If an adventure was made from a world that used the quest log and brings the module's two data journals along, their quests are merged into this world's quest log and the extra journals are removed.
@@ -77,26 +87,27 @@ The first time a GM opens the world after enabling the module, the quest log is 
 - Players can delete only what they added themselves (quests, objectives, notes, images), unless the GM turns on *Players can delete anything*. The GM can always delete everything.
 - Only the author (or the GM) can edit or delete a note.
 - Everyone can add, edit and use quest rewards; deleting one follows the same rule as quests.
+- Everyone can add, edit, pin and share notes in the Notes view; deleting one (or an image on it) follows the same rule as quests.
 - Hidden quests and hidden parts of quests are kept out of everything players see. Like any GM-only journal entry, a player who digs into the browser console could still read them; don't rely on it for secrets you'd hide from a determined player.
 
 ## Settings
 
 | Setting | Scope | Default | What it does |
 |---|---|---|---|
-| Announce quest changes | World | On | Notification to everyone when a quest is added, revealed, completed, failed or reopened, or a quest reward is added, revealed, used or used up. |
+| Announce quest changes | World | On | Notification to everyone when a quest is added, revealed, completed, failed or reopened, a quest reward is added, revealed, used or used up, or a note is added or revealed. |
 | Offer quest rewards on completion | World | On | When a quest with a reward is completed, the GM is asked whether to add it to the Quest Rewards. |
 | Players can delete anything | World | Off | Off: players delete only their own quests, objectives, notes and images. |
 | Import quests from adventures | World | On | Adds the quests stored in an adventure to the quest log (hidden) when a GM imports it. |
 | Image folder | World | *(empty)* | Where uploads go, relative to the data folder. Empty: `worlds/<world>/quest-log`. |
 | Right-click menu for selected text | Client | On | Turns the selected-text menu on or off for you. |
 
-**Delete all quests** (GM only, a button at the top of the module's settings): deletes every quest in the log, hidden ones included (tick *Also delete all quest rewards* to empty the Quest Rewards too). You have to type `DELETE` to confirm, and the dialog has a button to export the log first. It can't be undone; uploaded image files stay in the image folder. It's only in the settings, not in the Quest Log tab, so the log can't be wiped by a stray click.
+**Delete all quests** (GM only, a button at the top of the module's settings): deletes every quest in the log, hidden ones included (tick *Also delete all quest rewards* / *Also delete all … notes* to empty the Quest Rewards / the Notes too). You have to type `DELETE` to confirm, and the dialog has a button to export the log first. It can't be undone; uploaded image files stay in the image folder. It's only in the settings, not in the Quest Log tab, so the log can't be wiped by a stray click.
 
 ## Where the data lives
 
-Quests and quest rewards are stored in the flags of two journal entries that the module creates the first time a GM joins: *Quest Log (module data, shared)*, owned by everyone, and *Quest Log (module data, GM only)* for hidden quests and rewards. Both are hidden from the Journal sidebar. Don't delete them: that deletes the quest log. They're ordinary world documents, so they're included in world backups and exports. Uploaded images are ordinary files in the image folder.
+Quests, quest rewards and notes are stored in the flags of two journal entries that the module creates the first time a GM joins: *Quest Log (module data, shared)*, owned by everyone, and *Quest Log (module data, GM only)* for hidden quests, rewards and notes. Both are hidden from the Journal sidebar. Don't delete them: that deletes the quest log. They're ordinary world documents, so they're included in world backups and exports. Uploaded images are ordinary files in the image folder.
 
-Every change is saved as a small update of just the part that changed, so several people can edit the log at the same time without overwriting each other. Each use of a reward is saved as its own entry for the same reason.
+Every change is saved as a small update of just the part that changed, so several people can edit the log at the same time without overwriting each other. Each use of a reward, and each image on a note, is saved as its own entry for the same reason.
 
 ## API
 
@@ -120,6 +131,11 @@ Every change is saved as a small update of just the part that changed, so severa
 | `createReward(data, {hidden})` / `updateReward(id, data)` / `deleteReward(id)` | Creates (returns the id), changes or deletes a reward (`data` as `prefill` above). |
 | `useReward(id)`, `undoRewardUse(id)`, `refillReward(id)`, `setRewardClaimed(id, claimed)`, `setRewardHidden(id, hidden)` | Uses a reward once (the last use moves it to claimed), takes back the last use, fills it again, claims or restores it, hides or reveals it (GM). |
 | `offerQuestRewards(questId)` | GM: asks whether to add a completed quest's reward to the Quest Rewards (what happens when a quest is completed). |
+| `openNotes()` / `openPartyNote(id)` / `newPartyNote(prefill)` | Opens the Notes view / a note's window / the new-note form (`prefill`: `title`, `text`, `tags`, `questId`, `links` (`[{type, name, uuid}]`), `images` (paths), `pinned`, `hidden`). |
+| `addAsPartyNote({text, images, source, title})` | Opens the new-note form filled in from a piece of text. |
+| `partyNotes()` / `getPartyNote(id)` | Notes the current user can see (`title`, `text`, `tags`, `questId`, `links`, `gallery` (`[{id, src}]`), `pinned`, `hidden`). |
+| `createPartyNote(data, {hidden})` / `updatePartyNote(id, data)` / `deletePartyNote(id)` | Creates (returns the id), changes or deletes a note (`data` as `prefill` above; `images` only when creating). |
+| `setPartyNotePinned(id, pinned)`, `setPartyNoteHidden(id, hidden)`, `addPartyNoteImages(id, paths)`, `sharePartyNote(id)` | Pins or unpins a note, hides or reveals it (GM), adds images to it, posts it to the chat. |
 | `setPartHidden(id, kind, partId, hidden)` / `setFieldHidden(id, field, hidden)` | GM: hides or reveals one stage, objective, note/clue, image or place (`kind`: `stages`, `objectives`, `notes`, `gallery`, `locations`) / one field (`questType`, `chapter`, `giver`, `acquiredAt`, `reward`, `description`, `tags`). |
 
 ### Making an adventure that brings quests
@@ -147,6 +163,8 @@ Put the quests in the Adventure document's flags, in the same format as an expor
 The easiest way is to build the quests in a world (hidden, with the GM's quest window) and run `storeInAdventure(uuid)` with the adventure's compendium unlocked, or to paste an export file's contents into `questLog` when building the adventure with the Foundry CLI. Give quests fixed ids (letters and digits, up to 32): the ids are how a re-import recognises quests that are already in the log, and what `@Quest[id]` links point to. A quest without `"hidden"` is imported hidden. `"questType": "main"` or `"side"` and `"chapter": "Chapter 1"` set the categories; places go in `"locations"`, as a list of names or `{"name": "…", "hidden": true}` (an old single `"location"` text still works). Stages (`"stages": {"s1": {"title": "…", "text": "…", "hidden": true, "sort": 1}}`, with `"stage": "s1"` on their objectives), objectives, notes and images with `"hidden": true` and the fields in `"hiddenFields"` stay hidden after the quest itself is revealed, until the GM unhides them.
 
 An adventure can bring quest rewards too, in `"rewards"` next to `"quests"`: `{ "id": "myAdvReward00001", "name": "Favour of the Harbour Guild", "maxUses": 1, "questId": "myAdvQuest000001", "links": [{"type": "faction", "name": "Harbour Guild"}] }`. They are imported hidden unless `"hidden": false`, and rewards already in the log are left as they are (so the party's uses aren't reset). `@Reward[<reward id>]{label}` links a reward in a journal page.
+
+Notes go in `"partyNotes"` the same way: `{ "id": "myAdvNote0000001", "title": "The smuggler's map", "text": "…", "tags": ["Chapter 1"], "questId": "myAdvQuest000001", "images": ["worlds/my-world/maps/smugglers.webp"] }`. They are imported hidden unless `"hidden": false` (a ready-made handout for the GM to reveal), and notes already in the log are left as they are. `@PartyNote[<note id>]{label}` links a note in a journal page; for the GM a hidden note's link has a **Reveal** button.
 
 ## License
 

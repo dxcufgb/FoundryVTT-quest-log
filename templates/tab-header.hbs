@@ -4,7 +4,11 @@
     <input type="search" name="search" value="{{search}}" placeholder="{{searchPlaceholder}}"
            aria-label="{{searchLabel}}" autocomplete="off">
   </div>
-  {{#if rewardsView}}
+  {{#if notesView}}
+  <button type="button" class="dxql-new-quest" data-action="createPartyNote" data-tooltip="DXQL.PartyNote.NewHint">
+    <i class="fa-solid fa-plus" inert></i> {{localize "DXQL.PartyNote.New"}}
+  </button>
+  {{else if rewardsView}}
   <button type="button" class="dxql-new-quest" data-action="createReward" data-tooltip="DXQL.Reward.NewHint">
     <i class="fa-solid fa-plus" inert></i> {{localize "DXQL.Reward.New"}}
   </button>

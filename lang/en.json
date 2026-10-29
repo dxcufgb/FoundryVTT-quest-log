@@ -173,7 +173,9 @@
       "SelectionQuest": "Start a new quest from selection",
       "Copy": "Copy",
       "AddReward": "Add as a Quest Reward…",
-      "SelectionReward": "Add selection as a quest reward…"
+      "SelectionReward": "Add selection as a quest reward…",
+      "AddPartyNote": "Add as a Note…",
+      "SelectionPartyNote": "Add selection as a note in Notes…"
     },
     "NotifyCreated": "New quest: {title} (added by {name})",
     "NotifyRevealed": "New quest: {title}",
@@ -240,7 +242,11 @@
       "IncludeRewards": "Quest rewards",
       "ExportedWithRewards": "Exported {count} quests and {rewards} quest rewards.",
       "ImportSummaryRewards": "<b>{count}</b> quests and <b>{rewards}</b> quest rewards in <b>{file}</b>.",
-      "ImportedWithRewards": "Imported {count} quests and {rewards} quest rewards."
+      "ImportedWithRewards": "Imported {count} quests and {rewards} quest rewards.",
+      "IncludePartyNotes": "Notes",
+      "ExportedAll": "Exported {count} quests, {rewards} quest rewards and {notes} notes.",
+      "ImportSummaryAll": "<b>{count}</b> quests, <b>{rewards}</b> quest rewards and <b>{notes}</b> notes in <b>{file}</b>.",
+      "ImportedAll": "Imported {count} quests, {rewards} quest rewards and {notes} notes."
     },
     "HideFieldHint": "Hide this from players",
     "FieldHiddenHint": "Hidden from players – click to show it to them",
@@ -314,7 +320,9 @@
       "Empty": "The quest log is already empty.",
       "Done": "Deleted all {count} quests from the quest log.",
       "AlsoRewards": "Also delete all {count} quest rewards",
-      "RewardsDone": "Deleted all {count} quest rewards."
+      "RewardsDone": "Deleted all {count} quest rewards.",
+      "AlsoPartyNotes": "Also delete all {count} notes in the Notes view",
+      "PartyNotesDone": "Deleted all {count} notes."
     },
     "QuestsTab": "Quests",
     "ViewTabs": "Quests or quest rewards",
@@ -443,6 +451,95 @@
       "NotifyUsedUp": "{name} used the last use of {title}; it was moved to the claimed rewards.",
       "NotifyClaimed": "Reward claimed: {title}",
       "NotifyRestored": "Reward active again: {title}"
+    },
+    "PartyNote": {
+      "Tab": "Notes",
+      "Untitled": "Untitled note",
+      "New": "New Note",
+      "NewHint": "Add a note for the party, about a quest or on its own",
+      "Create": "Add Note",
+      "Edit": "Edit note",
+      "Delete": "Delete note",
+      "DeleteConfirm": "Delete the note <b>{title}</b>? This can't be undone.",
+      "Gone": "This note has been deleted.",
+      "TitleRequired": "Give the note a title.",
+      "Search": "Search the notes",
+      "SearchPlaceholder": "Search notes…",
+      "FilterLabel": "Show notes",
+      "Filter": {
+        "all": "All",
+        "pinned": "Pinned",
+        "quest": "Quests",
+        "general": "General"
+      },
+      "GroupByLabel": "Group notes by",
+      "GroupBy": {
+        "none": "No grouping",
+        "quest": "Quest",
+        "tag": "Tag",
+        "author": "Written by",
+        "place": "Place",
+        "npc": "NPC",
+        "faction": "Faction",
+        "other": "Other link"
+      },
+      "GroupUnknown": {
+        "quest": "General notes",
+        "tag": "No tags",
+        "author": "Unknown author",
+        "place": "No place",
+        "npc": "No NPC",
+        "faction": "No faction",
+        "other": "No other link"
+      },
+      "Empty": "No notes yet. Write down anything the party wants to remember: rumours, names, maps, plans.",
+      "NoMatches": "No notes match your search.",
+      "EmptyFilter": {
+        "all": "No notes yet.",
+        "pinned": "No pinned notes. Pin a note to keep it at the top.",
+        "quest": "No notes about a quest.",
+        "general": "No general notes."
+      },
+      "Pinned": "Pinned",
+      "Pin": "Pin to the top",
+      "Unpin": "Unpin",
+      "PinNew": "Pin to the top of the list",
+      "Share": "Share in chat",
+      "ShareHint": "Post this note to the chat for everyone",
+      "ShareHidden": "Reveal the note to the players before sharing it.",
+      "OpenQuest": "Open the quest",
+      "CopyLink": "Copy note link",
+      "LinkCopied": "Copied {link}. Paste it into a journal page or chat to link this note.",
+      "LinkUnknown": "Unknown note",
+      "LinkNotInLog": "This note isn't in the Notes.",
+      "LinkUnavailable": "You can't see that note.",
+      "NoText": "No text yet.",
+      "NoQuest": "General note (no quest)",
+      "EditedBy": "edited by {name} {date}",
+      "Linked": "Linked to a document: click it in the note window to open it",
+      "KeptHidden": "The note is hidden from players while its quest is hidden.",
+      "QuestHidden": "The note's quest is hidden from players. Reveal the quest first, or remove the link to it.",
+      "AboutThisQuest": "Party notes",
+      "AddFromQuest": "Add Note",
+      "AddFromQuestHint": "Add a note about this quest to the Notes",
+      "Field": {
+        "Title": "Title",
+        "Quest": "About quest",
+        "Text": "Note",
+        "Links": "Linked to"
+      },
+      "Placeholder": {
+        "Title": "e.g. Rumours from the Green Dragon",
+        "Text": "Whatever the party wants to remember."
+      },
+      "Hint": {
+        "Quest": "Leave it as a general note, or pick the quest it is about.",
+        "Text": "Drop actors, items, journal entries or scenes here to link them. Paste or drop images to add them.",
+        "Links": "Pick what it is (place, NPC, faction, other), type a name and press Enter. Drop actors, scenes or journal entries here to link them; click a link's icon to change what it is.",
+        "Hidden": "Players can't see the note until you reveal it."
+      },
+      "NotifyCreated": "New note: {title} (added by {name})",
+      "NotifyRevealed": "New note: {title}"
     }
   }
 }

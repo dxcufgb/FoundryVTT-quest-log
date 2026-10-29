@@ -1,0 +1,71 @@
+<div class="dxql-list">
+  {{#unless ready}}
+  <div class="dxql-empty">
+    <i class="fa-solid fa-hourglass-half" inert></i>
+    <p>{{localize "DXQL.NotReady"}}</p>
+  </div>
+  {{else}}
+  {{#each groups}}
+  <section class="dxql-group {{#if collapsed}}collapsed{{/if}}" data-group="{{key}}">
+    {{#if label}}
+    <button type="button" class="dxql-group-header" data-action="toggleGroup" aria-expanded="{{#if collapsed}}false{{else}}true{{/if}}"
+            {{#if hue}}style="--hue: {{hue}}"{{/if}}>
+      <i class="dxql-caret fa-solid fa-chevron-down" inert></i>
+      <i class="{{icon}} dxql-group-icon {{#if hue}}tinted{{/if}}" inert></i>
+      <span class="dxql-group-label {{#if unknown}}unknown{{/if}}">{{label}}</span>
+      <span class="dxql-count">{{count}}</span>
+    </button>
+    {{/if}}
+    <ol class="dxql-quests dxql-party-notes">
+      {{#each notes}}
+      <li class="dxql-quest dxql-party-note {{#if pinned}}is-pinned{{/if}} {{#if hidden}}is-hidden{{/if}}" data-note-id="{{id}}"
+          data-action="openPartyNote" tabindex="0" draggable="false">
+        <div class="dxql-reward-icon dxql-note-icon">
+          {{#if img}}<img src="{{img}}" alt="">{{else}}<i class="fa-solid fa-note-sticky" inert></i>{{/if}}
+        </div>
+        <div class="dxql-quest-body">
+          <div class="dxql-quest-title">
+            <span>{{title}}</span>
+            {{#if hidden}}<i class="fa-solid fa-eye-slash dxql-hidden-icon" data-tooltip="DXQL.HiddenFromPlayers"></i>{{/if}}
+            <button type="button" class="dxql-icon-btn dxql-pin-btn {{#if pinned}}is-on{{/if}}" data-action="toggleNotePin"
+                    data-tooltip="{{pinTooltip}}" aria-label="{{pinTooltip}}" aria-pressed="{{#if pinned}}true{{else}}false{{/if}}">
+              <i class="fa-solid fa-thumbtack" inert></i></button>
+          </div>
+          {{#if (or questTitle links.length)}}
+          <div class="dxql-quest-meta">
+            {{#if questTitle}}<span><i class="fa-solid fa-scroll" inert></i>{{questTitle}}</span>{{/if}}
+            {{#each links}}<span data-tooltip="{{label}}"><i class="{{icon}}" inert></i>{{name}}</span>{{/each}}
+          </div>
+          {{/if}}
+          {{#if excerpt}}<div class="dxql-note-excerpt">{{excerpt}}</div>{{/if}}
+          {{#if tags.length}}
+          <div class="dxql-tags">
+            {{#each tags}}
+            <button type="button" class="dxql-tag {{#if active}}active{{/if}}" style="--hue: {{hue}}" data-action="filterTag"
+                    data-tag="{{name}}">{{name}}</button>
+            {{/each}}
+          </div>
+          {{/if}}
+          <div class="dxql-note-byline">
+            <span class="dxql-author" style="--user-color: {{color}}">{{author}}</span> · {{updated}}
+            {{#if imageCount}} · <i class="fa-solid fa-images" inert></i> {{imageCount}}{{/if}}
+          </div>
+          {{#if snippet}}<div class="dxql-snippet">{{{snippet}}}</div>{{/if}}
+        </div>
+      </li>
+      {{/each}}
+    </ol>
+  </section>
+  {{else}}
+  <div class="dxql-empty">
+    <i class="fa-solid fa-note-sticky" inert></i>
+    <p>{{emptyMessage}}</p>
+    {{#if searching}}
+    <button type="button" data-action="clearSearch"><i class="fa-solid fa-xmark" inert></i> {{localize "DXQL.ClearSearch"}}</button>
+    {{else}}{{#unless total}}
+    <button type="button" data-action="createPartyNote"><i class="fa-solid fa-plus" inert></i> {{localize "DXQL.PartyNote.New"}}</button>
+    {{/unless}}{{/if}}
+  </div>
+  {{/each}}
+  {{/unless}}
+</div>

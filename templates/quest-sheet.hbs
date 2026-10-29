@@ -520,6 +520,25 @@
     </div>
   </section>
 
+  <section class="dxql-section dxql-related dxql-quest-party-notes">
+    <h3 class="dxql-section-title"><i class="fa-solid fa-note-sticky" inert></i> {{localize "DXQL.PartyNote.AboutThisQuest"}}
+      {{#if partyNotes.length}}<span class="dxql-count">{{partyNotes.length}}</span>{{/if}}</h3>
+    {{#if partyNotes.length}}
+    <ul>
+      {{#each partyNotes}}
+      <li>
+        <a data-action="openPartyNote" data-note-id="{{id}}"><i class="fa-solid {{#if pinned}}fa-thumbtack{{else}}fa-note-sticky{{/if}}" inert></i> {{title}}</a>
+        <span class="dxql-hint">{{date}}</span>
+        {{#if hidden}}<i class="fa-solid fa-eye-slash dxql-hidden-icon" data-tooltip="DXQL.HiddenFromPlayers"></i>{{/if}}
+      </li>
+      {{/each}}
+    </ul>
+    {{/if}}
+    <div class="dxql-stage-add">
+      <button type="button" data-action="addPartyNote" data-tooltip="DXQL.PartyNote.AddFromQuestHint"><i class="fa-solid fa-note-sticky" inert></i> {{localize "DXQL.PartyNote.AddFromQuest"}}</button>
+    </div>
+  </section>
+
   {{#if related.length}}
   <section class="dxql-section dxql-related">
     <h3 class="dxql-section-title"><i class="fa-solid fa-diagram-project" inert></i> {{localize "DXQL.RelatedQuests"}}</h3>

@@ -40,6 +40,22 @@ export function matchReward(reward, terms, questTitle = "") {
   return matchParts(rewardFields(reward, questTitle), reward.name, terms);
 }
 
+/** The searchable parts of a party note. questTitle: the title of the quest it is about (if the user can see it). */
+function partyNoteFields(note, questTitle) {
+  return [
+    { label: t("PartyNote.Field.Title"), text: note.title },
+    { label: t("PartyNote.Field.Quest"), text: questTitle ?? "" },
+    { label: t("PartyNote.Field.Links"), text: note.links.map(l => l.name).join(", ") },
+    { label: t("Field.Tags"), text: note.tags.join(", ") },
+    { label: t("PartyNote.Field.Text"), text: plainText(note.text), author: userInfo(note.createdBy, note.authorName).name }
+  ];
+}
+
+/** Like matchQuest, for a party note. */
+export function matchPartyNote(note, terms, questTitle = "") {
+  return matchParts(partyNoteFields(note, questTitle), note.title, terms);
+}
+
 export function tokenize(query) {
   return String(query ?? "").toLowerCase().split(/\s+/).map(s => s.trim()).filter(Boolean);
 }

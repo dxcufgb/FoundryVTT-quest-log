@@ -1235,6 +1235,9 @@ a.dxql-quest-link > i { color: #c98a2c; font-size: 0.85em; }
 .dxql .dxql-view-tab.active .dxql-count { background: rgba(0, 0, 0, 0.18); color: inherit; }
 .dxql .dxql-view-tab i { margin: 0; }
 .dxql .dxql-view-tab > span:not(.dxql-count) { overflow: hidden; text-overflow: ellipsis; }
+/* Three views share the switch: let the labels shrink (with an ellipsis) in a narrow sidebar. */
+.dxql .dxql-view-tab { min-width: 0; }
+.dxql .dxql-view-tab .dxql-count { flex: none; }
 
 .dxql .dxql-status-tab.reward-status-claimed.active { box-shadow: inset 0 -2px 0 var(--dxql-muted); }
 
@@ -1383,3 +1386,54 @@ a.dxql-quest-link > i { color: #c98a2c; font-size: 0.85em; }
 
 /* @Reward[id]{label} links */
 a.dxql-reward-link > i { color: #c98a2c; }
+
+/* ==========================================================================
+   Notes (the party's own notes)
+   ========================================================================== */
+
+/* Note cards in the list */
+.dxql .dxql-party-note { align-items: flex-start; border-left-color: var(--dxql-clue); }
+.dxql .dxql-party-note:hover,
+.dxql .dxql-party-note:focus-visible { border-left-color: var(--dxql-clue); }
+.dxql .dxql-party-note.is-pinned { border-left-color: var(--dxql-accent); background: var(--dxql-accent-soft); }
+.dxql .dxql-party-note .dxql-quest-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.dxql .dxql-note-icon { background: var(--dxql-clue-soft); color: var(--dxql-clue); }
+.dxql .dxql-party-note .dxql-quest-title span { flex: 1; }
+.dxql .dxql-pin-btn { width: 20px; height: 20px; font-size: 10px; margin-left: auto; opacity: 0; transform: rotate(30deg); }
+.dxql .dxql-party-note:hover .dxql-pin-btn,
+.dxql .dxql-pin-btn:focus-visible,
+.dxql .dxql-pin-btn.is-on { opacity: 1; }
+.dxql .dxql-pin-btn.is-on { color: var(--dxql-accent); transform: none; }
+.dxql .dxql-note-excerpt {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  color: var(--dxql-text);
+  font-size: var(--font-size-12, 0.75rem);
+  line-height: 1.35;
+}
+.dxql .dxql-note-byline { color: var(--dxql-muted); font-size: var(--font-size-11, 0.6875rem); }
+.dxql .dxql-note-byline .dxql-author { font-size: inherit; }
+.dxql .dxql-note-byline i { font-size: 0.9em; margin: 0; }
+.dxql .dxql-status-tab.note-filter-pinned.active { box-shadow: inset 0 -2px 0 var(--dxql-accent); }
+
+/* Note window */
+.dxql .dxql-party-note-hero { background: linear-gradient(180deg, var(--dxql-clue-soft), transparent 85%); }
+.dxql .dxql-pinned-badge { background: var(--dxql-accent-soft); color: var(--dxql-accent); }
+.dxql .dxql-hero-actions .dxql-icon-btn.is-on { color: var(--dxql-accent); background: var(--dxql-accent-soft); }
+.dxql .dxql-party-note-text .dxql-hint { margin: 0; }
+
+/* Quest window: party notes about this quest */
+.dxql .dxql-quest-party-notes a i { color: var(--dxql-clue); }
+.dxql .dxql-quest-party-notes .dxql-hint { margin: 0; }
+
+/* A note shared in the chat */
+.dxql-chat-note h3 { display: flex; align-items: center; gap: 6px; margin: 0 0 4px; border: none; }
+.dxql-chat-note p { margin: 0 0 6px; overflow-wrap: anywhere; }
+.dxql-chat-note .dxql-chat-images { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 6px; }
+.dxql-chat-note .dxql-chat-images img { max-width: 100%; max-height: 180px; border: none; border-radius: 4px; object-fit: contain; }
+.dxql-chat-note .dxql-chat-open { margin: 0; font-size: 0.9em; }
+
+/* @PartyNote[id]{label} links */
+a.dxql-party-note-link > i { color: #6f95e6; }

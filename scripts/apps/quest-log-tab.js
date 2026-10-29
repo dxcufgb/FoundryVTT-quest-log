@@ -1,10 +1,12 @@
 import {
-  MODULE_ID, TEMPLATE_PATH, STATUSES, STATUS_ICONS, REWARD_STATUSES, REWARD_STATUS_ICONS, LINK_ICONS, t, tagHue, formatDate, escapeHTML
+  MODULE_ID, TEMPLATE_PATH, STATUSES, STATUS_ICONS, REWARD_STATUSES, REWARD_STATUS_ICONS, LINK_ICONS, LINK_TYPES, t, tagHue, formatDate,
+  escapeHTML, plainText, userInfo
 } from "../util.js";
 import * as store from "../store.js";
-import { matchQuest, matchReward, tokenize } from "../search.js";
+import { matchQuest, matchReward, matchPartyNote, tokenize } from "../search.js";
 import { QuestSheet } from "./quest-sheet.js";
 import { RewardSheet } from "./reward-sheet.js";
+import { PartyNoteSheet, PARTY_NOTE_ICON } from "./party-note-sheet.js";
 import { exportQuests, importQuests } from "../transfer.js";
 
 const { HandlebarsApplicationMixin } = foundry.applications.api;
@@ -14,12 +16,20 @@ const TYPE_ICONS = { main: "fa-solid fa-crown", side: "fa-solid fa-compass", "":
 
 export const GROUP_MODES = ["none", "questType", "chapter", "acquiredAt", "location", "giver", "tag"];
 export const REWARD_GROUP_MODES = ["none", "quest", "place", "npc", "faction", "other"];
-/** The two views of the tab. */
-export const VIEWS = ["quests", "rewards"];
+export const NOTE_GROUP_MODES = ["none", "quest", "tag", "author", ...LINK_TYPES];
+/** The Notes view's filter: all notes, pinned ones, notes about a quest, general notes (about no quest). */
+export const NOTE_FILTERS = ["all", "pinned", "quest", "general"];
+/** The three views of the tab. */
+export const VIEWS = ["quests", "rewards", "notes"];
+const VIEW_ICONS = { quests: "fa-solid fa-scroll", rewards: "fa-solid fa-gift", notes: PARTY_NOTE_ICON };
+const VIEW_LABELS = { quests: "QuestsTab", rewards: "Reward.Tab", notes: "PartyNote.Tab" };
+/** The client settings that hold each view's status filter and grouping. */
+const FILTER_SETTINGS = { quests: "statusFilter", rewards: "rewardStatusFilter", notes: "noteFilter" };
+const GROUP_SETTINGS = { quests: "groupBy", rewards: "rewardGroupBy", notes: "noteGroupBy" };
 /** At most this many uses are drawn as pips; more show as a number only. */
 const MAX_PIPS = 10;
 
-/** The Quest Log tab in the right sidebar (and its pop-out): the quests, and the party's quest rewards. */
+/** The Quest Log tab in the right sidebar (and its pop-out): the quests, the party's quest rewards and the party's notes. */
 export class QuestLogTab extends HandlebarsApplicationMixin(AbstractSidebarTab) {
   static tabName = "questlog";
 
@@ -39,6 +49,9 @@ export class QuestLogTab extends HandlebarsApplicationMixin(AbstractSidebarTab) 
       createReward: QuestLogTab.#onCreateReward,
       openReward: QuestLogTab.#onOpenReward,
       useReward: QuestLogTab.#onUseReward,
+      createPartyNote: QuestLogTab.#onCreatePartyNote,
+      openPartyNote: QuestLogTab.#onOpenPartyNote,
+      toggleNotePin: QuestLogTab.#onToggleNotePin,
       exportQuests: () => exportQuests(),
       importQuests: () => importQuests(null)
     }
@@ -57,37 +70,53 @@ export class QuestLogTab extends HandlebarsApplicationMixin(AbstractSidebarTab) 
     list: `${TEMPLATE_PATH}/tab-reward-list.hbs`
   };
 
+  /** The Notes view uses its own filters and list. */
+  static NOTE_PARTS = {
+    filters: `${TEMPLATE_PATH}/tab-note-filters.hbs`,
+    list: `${TEMPLATE_PATH}/tab-note-list.hbs`
+  };
+
   /** Free-text search, shared by the sidebar tab and its pop-out (one for each view). */
   static search = "";
   static rewardSearch = "";
+  static noteSearch = "";
   static tagFilter = null;
+  static noteTagFilter = null;
   static collapsed = new Set();
 
-  /** "quests" or "rewards" (shared by the tab and its pop-out). */
-  get view() {
+  /** The view shown: "quests", "rewards" or "notes" (shared by the tab and its pop-out). */
+  static get currentView() {
     const view = game.settings.get(MODULE_ID, "view");
     return VIEWS.includes(view) ? view : "quests";
+  }
+
+  get view() {
+    return QuestLogTab.currentView;
   }
 
   get rewardsView() {
     return this.view === "rewards";
   }
 
+  get notesView() {
+    return this.view === "notes";
+  }
+
   get statusFilter() {
-    return game.settings.get(MODULE_ID, this.rewardsView ? "rewardStatusFilter" : "statusFilter");
+    return game.settings.get(MODULE_ID, FILTER_SETTINGS[this.view]);
   }
 
   get groupBy() {
-    return game.settings.get(MODULE_ID, this.rewardsView ? "rewardGroupBy" : "groupBy");
+    return game.settings.get(MODULE_ID, GROUP_SETTINGS[this.view]);
   }
 
   static get currentSearch() {
-    return game.settings.get(MODULE_ID, "view") === "rewards" ? QuestLogTab.rewardSearch : QuestLogTab.search;
+    return { quests: QuestLogTab.search, rewards: QuestLogTab.rewardSearch, notes: QuestLogTab.noteSearch }[QuestLogTab.currentView];
   }
 
   static set currentSearch(value) {
-    if (game.settings.get(MODULE_ID, "view") === "rewards") QuestLogTab.rewardSearch = value;
-    else QuestLogTab.search = value;
+    const key = { quests: "search", rewards: "rewardSearch", notes: "noteSearch" }[QuestLogTab.currentView];
+    QuestLogTab[key] = value;
   }
 
   /** Re-renders the parts that depend on quest data (both the tab and its pop-out). */
@@ -98,8 +127,9 @@ export class QuestLogTab extends HandlebarsApplicationMixin(AbstractSidebarTab) 
 
   _configureRenderParts(options) {
     const parts = super._configureRenderParts(options);
-    if (this.rewardsView) {
-      for (const [id, template] of Object.entries(QuestLogTab.REWARD_PARTS)) if (parts[id]) parts[id] = { ...parts[id], template };
+    const swap = this.rewardsView ? QuestLogTab.REWARD_PARTS : this.notesView ? QuestLogTab.NOTE_PARTS : null;
+    if (swap) {
+      for (const [id, template] of Object.entries(swap)) if (parts[id]) parts[id] = { ...parts[id], template };
     }
     return parts;
   }
@@ -113,23 +143,27 @@ export class QuestLogTab extends HandlebarsApplicationMixin(AbstractSidebarTab) 
     const ready = store.storesReady();
     const quests = ready ? store.allQuests() : [];
     const rewards = ready ? store.allRewards() : [];
+    const notes = ready ? store.allPartyNotes() : [];
     const rewardsView = this.rewardsView;
+    const notesView = this.notesView;
+    const viewCounts = {
+      quests: quests.filter(q => q.status === "active").length,
+      rewards: rewards.filter(r => r.status === "active").length,
+      notes: notes.length
+    };
+    const prefix = { quests: "", rewards: "Reward.", notes: "PartyNote." }[this.view];
     Object.assign(context, {
       ready,
       isGM: game.user.isGM,
       rewardsView,
-      views: VIEWS.map(id => ({
-        id,
-        label: t(id === "rewards" ? "Reward.Tab" : "QuestsTab"),
-        icon: id === "rewards" ? "fa-solid fa-gift" : "fa-solid fa-scroll",
-        count: id === "rewards" ? rewards.filter(r => r.status === "active").length : quests.filter(q => q.status === "active").length,
-        active: id === this.view
-      })),
-      search: rewardsView ? QuestLogTab.rewardSearch : QuestLogTab.search,
-      searchPlaceholder: t(rewardsView ? "Reward.SearchPlaceholder" : "SearchPlaceholder"),
-      searchLabel: t(rewardsView ? "Reward.Search" : "Search")
+      notesView,
+      views: VIEWS.map(id => ({ id, label: t(VIEW_LABELS[id]), icon: VIEW_ICONS[id], count: viewCounts[id], active: id === this.view })),
+      search: QuestLogTab.currentSearch,
+      searchPlaceholder: t(`${prefix}SearchPlaceholder`),
+      searchLabel: t(`${prefix}Search`)
     });
     if (rewardsView) return this.#prepareRewards(context, quests, rewards);
+    if (notesView) return this.#prepareNotes(context, quests, notes);
 
     const terms = tokenize(QuestLogTab.search);
     const tag = QuestLogTab.tagFilter;
@@ -327,6 +361,99 @@ export class QuestLogTab extends HandlebarsApplicationMixin(AbstractSidebarTab) 
   }
 
   /* -------------------------------------------- */
+  /*  Party notes                                 */
+  /* -------------------------------------------- */
+
+  #prepareNotes(context, quests, notes) {
+    const terms = tokenize(QuestLogTab.noteSearch);
+    const tag = QuestLogTab.noteTagFilter;
+    const questTitles = new Map(quests.map(q => [q.id, q.title]));
+    const found = [];
+    for (const note of notes) {
+      if (tag && !note.tags.some(x => x.toLowerCase() === tag.toLowerCase())) continue;
+      const match = matchPartyNote(note, terms, questTitles.get(note.questId));
+      if (match) found.push({ note, snippet: match.snippet });
+    }
+    const test = { all: () => true, pinned: n => n.pinned, quest: n => !!n.questId, general: n => !n.questId };
+    const counts = Object.fromEntries(NOTE_FILTERS.map(f => [f, found.filter(e => test[f](e.note)).length]));
+    const filter = NOTE_FILTERS.includes(this.statusFilter) ? this.statusFilter : "all";
+    const shown = found.filter(e => test[filter](e.note));
+    return Object.assign(context, {
+      searching: terms.length > 0 || !!tag,
+      tagFilter: tag,
+      tagHue: tag ? tagHue(tag) : 0,
+      statusTabs: NOTE_FILTERS.map(f => ({ id: f, label: t(`PartyNote.Filter.${f}`), count: counts[f], active: f === filter })),
+      groupBy: this.groupBy,
+      groupOptions: Object.fromEntries(NOTE_GROUP_MODES.map(g => [g, t(`PartyNote.GroupBy.${g}`)])),
+      groups: this.#groupNotes(shown, questTitles),
+      total: notes.length,
+      emptyMessage: !notes.length ? t("PartyNote.Empty") : terms.length || tag ? t("PartyNote.NoMatches") : t(`PartyNote.EmptyFilter.${filter}`)
+    });
+  }
+
+  #noteCard(note, snippet, questTitles) {
+    const author = userInfo(note.createdBy, note.authorName);
+    const text = plainText(note.text).replace(/\s+/g, " ").trim();
+    return {
+      id: note.id,
+      title: note.title,
+      img: note.gallery[0]?.src ?? "",
+      imageCount: note.gallery.length,
+      pinned: note.pinned,
+      hidden: note.hidden,
+      questTitle: questTitles.get(note.questId) ?? "",
+      links: note.links.map(l => ({ name: l.name, icon: LINK_ICONS[l.type], label: t(`Reward.LinkType.${l.type}`) })),
+      tags: note.tags.map(name => ({ name, hue: tagHue(name), active: name.toLowerCase() === QuestLogTab.noteTagFilter?.toLowerCase() })),
+      excerpt: snippet ? "" : text.length > 140 ? `${text.slice(0, 140)}…` : text,
+      author: author.name,
+      color: author.color,
+      updated: formatDate(note.editedAt || note.createdAt),
+      pinTooltip: t(note.pinned ? "PartyNote.Unpin" : "PartyNote.Pin"),
+      snippet
+    };
+  }
+
+  #groupNotes(entries, questTitles) {
+    // Pinned notes first, then the most recently changed.
+    entries.sort((a, b) => (b.note.pinned - a.note.pinned) || ((b.note.editedAt || b.note.createdAt) - (a.note.editedAt || a.note.createdAt)));
+    const mode = NOTE_GROUP_MODES.includes(this.groupBy) ? this.groupBy : "none";
+    const card = e => this.#noteCard(e.note, e.snippet, questTitles);
+    if (mode === "none") return entries.length ? [{ key: "all", label: null, notes: entries.map(card) }] : [];
+    const groups = new Map();
+    const unknownKey = "\u0000unknown";
+    const add = (label, entry, key = null) => {
+      label = String(label ?? "").trim();
+      key ??= label ? label.toLowerCase() : unknownKey;
+      if (!groups.has(key)) groups.set(key, { key, label: label || t(`PartyNote.GroupUnknown.${mode}`), unknown: !label, notes: [] });
+      groups.get(key).notes.push(card(entry));
+    };
+    for (const entry of entries) {
+      const note = entry.note;
+      if (mode === "quest") {
+        const title = questTitles.get(note.questId);
+        add(title, entry, title ? note.questId : null);
+      } else if (mode === "author") {
+        add(userInfo(note.createdBy, note.authorName).name, entry, note.createdBy || null);
+      } else {
+        // A note with several tags (places, NPCs …) shows up under each of them.
+        const names = mode === "tag" ? note.tags : note.links.filter(l => l.type === mode).map(l => l.name);
+        if (names.length) [...new Set(names)].forEach(n => add(n, entry));
+        else add("", entry);
+      }
+    }
+    const icon = { quest: "fa-solid fa-scroll", tag: "fa-solid fa-tag", author: "fa-solid fa-user-pen" }[mode] ?? LINK_ICONS[mode];
+    return [...groups.values()]
+      .sort((a, b) => (a.unknown - b.unknown) || a.label.localeCompare(b.label, undefined, { numeric: true, sensitivity: "base" }))
+      .map(g => ({
+        ...g,
+        icon,
+        hue: mode === "tag" && !g.unknown ? tagHue(g.label) : null,
+        count: g.notes.length,
+        collapsed: QuestLogTab.collapsed.has(`notes:${mode}:${g.key}`)
+      }));
+  }
+
+  /* -------------------------------------------- */
   /*  Rendering                                   */
   /* -------------------------------------------- */
 
@@ -351,7 +478,7 @@ export class QuestLogTab extends HandlebarsApplicationMixin(AbstractSidebarTab) 
     const select = this.element.querySelector("select[name=groupBy]");
     if (select && options.parts?.includes("filters")) {
       select.addEventListener("change", async event => {
-        await game.settings.set(MODULE_ID, this.rewardsView ? "rewardGroupBy" : "groupBy", event.target.value);
+        await game.settings.set(MODULE_ID, GROUP_SETTINGS[this.view], event.target.value);
         this.#renderAllLists();
       });
     }
@@ -360,6 +487,9 @@ export class QuestLogTab extends HandlebarsApplicationMixin(AbstractSidebarTab) 
       const ContextMenu = foundry.applications.ux.ContextMenu.implementation;
       new ContextMenu(this.element, ".dxql-quest[data-quest-id]", this.#questMenu(), { jQuery: false, fixed: true });
       new ContextMenu(this.element, ".dxql-reward[data-reward-id]", RewardSheet.contextOptions(li => li.dataset.rewardId), {
+        jQuery: false, fixed: true
+      });
+      new ContextMenu(this.element, ".dxql-party-note[data-note-id]", PartyNoteSheet.contextOptions(li => li.dataset.noteId), {
         jQuery: false, fixed: true
       });
     }
@@ -442,13 +572,13 @@ export class QuestLogTab extends HandlebarsApplicationMixin(AbstractSidebarTab) 
   }
 
   static async #onSetStatusFilter(event, target) {
-    await game.settings.set(MODULE_ID, this.rewardsView ? "rewardStatusFilter" : "statusFilter", target.dataset.status);
+    await game.settings.set(MODULE_ID, FILTER_SETTINGS[this.view], target.dataset.status);
     this.#renderAllLists();
   }
 
   static #onToggleGroup(event, target) {
     const group = target.closest("[data-group]").dataset.group;
-    const key = this.rewardsView ? `rewards:${this.groupBy}:${group}` : `${this.groupBy}:${group}`;
+    const key = this.view === "quests" ? `${this.groupBy}:${group}` : `${this.view}:${this.groupBy}:${group}`;
     if (QuestLogTab.collapsed.has(key)) QuestLogTab.collapsed.delete(key);
     else QuestLogTab.collapsed.add(key);
     this.#renderAllLists();
@@ -457,18 +587,20 @@ export class QuestLogTab extends HandlebarsApplicationMixin(AbstractSidebarTab) 
   static #onFilterTag(event, target) {
     event.stopPropagation();
     const tag = target.dataset.tag;
-    QuestLogTab.tagFilter = QuestLogTab.tagFilter?.toLowerCase() === tag.toLowerCase() ? null : tag;
+    const key = this.notesView ? "noteTagFilter" : "tagFilter";
+    QuestLogTab[key] = QuestLogTab[key]?.toLowerCase() === tag.toLowerCase() ? null : tag;
     this.#renderAllLists();
   }
 
   static #onClearTag() {
-    QuestLogTab.tagFilter = null;
+    QuestLogTab[this.notesView ? "noteTagFilter" : "tagFilter"] = null;
     this.#renderAllLists();
   }
 
   static #onClearSearch() {
     QuestLogTab.currentSearch = "";
-    if (!this.rewardsView) QuestLogTab.tagFilter = null;
+    if (this.notesView) QuestLogTab.noteTagFilter = null;
+    else if (!this.rewardsView) QuestLogTab.tagFilter = null;
     for (const app of [ui.questlog, ui.questlog?.popout]) {
       const input = app?.element?.querySelector("input[name=search]");
       if (input) input.value = "";
@@ -486,7 +618,7 @@ export class QuestLogTab extends HandlebarsApplicationMixin(AbstractSidebarTab) 
 
   /* Rewards */
 
-  /** Switches between the quests and the quest rewards (in the tab and its pop-out). */
+  /** Switches between the quests, the quest rewards and the notes (in the tab and its pop-out). */
   static async #onSetView(event, target) {
     const view = target.dataset.view;
     if (!VIEWS.includes(view) || view === this.view) return;
@@ -510,5 +642,24 @@ export class QuestLogTab extends HandlebarsApplicationMixin(AbstractSidebarTab) 
     event.stopPropagation();
     const id = target.closest("[data-reward-id]")?.dataset.rewardId;
     if (id) await store.useReward(id);
+  }
+
+  /* Party notes */
+
+  static #onCreatePartyNote() {
+    if (!store.storesReady()) return ui.notifications.warn(t("NotReady"));
+    PartyNoteSheet.createNew();
+  }
+
+  static #onOpenPartyNote(event, target) {
+    const id = target.closest("[data-note-id]")?.dataset.noteId;
+    if (id) PartyNoteSheet.open(id, { highlight: QuestLogTab.noteSearch });
+  }
+
+  static async #onToggleNotePin(event, target) {
+    event.stopPropagation();
+    const id = target.closest("[data-note-id]")?.dataset.noteId;
+    const note = id && store.getPartyNote(id);
+    if (note) await store.setPartyNotePinned(id, !note.pinned);
   }
 }
