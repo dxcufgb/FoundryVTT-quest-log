@@ -1,5 +1,5 @@
 import {
-  MODULE_ID, TEMPLATE_PATH, LINK_TYPES, LINK_ICONS, STATUS_ICONS, t, cleanLine, cleanTag, tagHue, enrich, formatDate, userInfo,
+  MODULE_ID, TEMPLATE_PATH, LINK_TYPES, facesEntry, openFacesEntry, LINK_ICONS, STATUS_ICONS, t, cleanLine, cleanTag, tagHue, enrich, formatDate, userInfo,
   locationSuggestions, getDropData, linkForDrop, insertAtCursor, randomId, escapeHTML
 } from "../util.js";
 import * as store from "../store.js";
@@ -45,6 +45,7 @@ export class PartyNoteSheet extends HandlebarsApplicationMixin(ApplicationV2) {
       toggleHidden: PartyNoteSheet.#onToggleHidden,
       deleteNote: PartyNoteSheet.#onDeleteNote,
       openLink: PartyNoteSheet.#onOpenLink,
+      openFacesEntry: PartyNoteSheet.#onOpenFacesEntry,
       openQuest: PartyNoteSheet.#onOpenQuest
     }
   };
@@ -296,7 +297,7 @@ export class PartyNoteSheet extends HandlebarsApplicationMixin(ApplicationV2) {
       type,
       label: t(`Reward.LinkTypes.${type}`),
       icon: LINK_ICONS[type],
-      links: note.links.filter(l => l.type === type)
+      links: note.links.filter(l => l.type === type).map(l => ({ ...l, faces: facesEntry(type, l.name) }))
     })).filter(g => g.links.length);
     const author = userInfo(note.createdBy, note.authorName);
     const editor = note.editedBy || note.editedByName ? userInfo(note.editedBy, note.editedByName) : null;
@@ -662,6 +663,10 @@ export class PartyNoteSheet extends HandlebarsApplicationMixin(ApplicationV2) {
     if (doc instanceof Scene) return doc.view();
     if (doc instanceof JournalEntryPage) return doc.parent.sheet.render({ force: true, pageId: doc.id });
     return doc.sheet?.render({ force: true });
+  }
+
+  static #onOpenFacesEntry(event, target) {
+    openFacesEntry(target.dataset.facesKind, target.dataset.facesId);
   }
 
   static #onOpenQuest(event, target) {

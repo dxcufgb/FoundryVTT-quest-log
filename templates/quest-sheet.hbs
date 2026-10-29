@@ -230,14 +230,16 @@
         <dt><i class="fa-solid fa-user" inert></i> <span data-tooltip="DXQL.Hint.GiverDrop">{{localize "DXQL.Field.Giver"}}</span>{{#if @root.isGM}}<button type="button" class="dxql-icon-btn dxql-eye {{#if @root.secret.giver}}is-on{{/if}}" data-action="toggleField" data-field="giver" data-tooltip="{{#if @root.secret.giver}}DXQL.RevealToPlayers{{else}}DXQL.HideFromPlayers{{/if}}"><i class="fa-solid {{#if @root.secret.giver}}fa-eye-slash{{else}}fa-eye{{/if}}" inert></i></button>{{/if}}</dt>
         <dd>
           {{#if quest.giverImg}}<img class="dxql-portrait" src="{{quest.giverImg}}" alt="">{{/if}}
-          {{#if quest.giverUuid}}
+          {{#if giverFaces}}
+          <a data-action="openFacesEntry" data-faces-kind="{{giverFaces.kind}}" data-faces-id="{{giverFaces.id}}" data-tooltip="DXQL.OpenInFaces">{{quest.giver}}</a>
+          {{else if quest.giverUuid}}
           <a data-action="openGiver">{{#if quest.giver}}{{quest.giver}}{{else}}{{localize "DXQL.Unknown"}}{{/if}}</a>
           {{else if quest.giver}}{{quest.giver}}{{else}}<span class="dxql-muted">{{localize "DXQL.Unknown"}}</span>{{/if}}
         </dd>
       </div>
       <div class="dxql-fact {{#if secret.acquiredAt}}is-secret{{/if}}">
         <dt><i class="fa-solid fa-flag" inert></i> <span>{{localize "DXQL.Field.AcquiredAt"}}</span>{{#if @root.isGM}}<button type="button" class="dxql-icon-btn dxql-eye {{#if @root.secret.acquiredAt}}is-on{{/if}}" data-action="toggleField" data-field="acquiredAt" data-tooltip="{{#if @root.secret.acquiredAt}}DXQL.RevealToPlayers{{else}}DXQL.HideFromPlayers{{/if}}"><i class="fa-solid {{#if @root.secret.acquiredAt}}fa-eye-slash{{else}}fa-eye{{/if}}" inert></i></button>{{/if}}</dt>
-        <dd>{{#if quest.acquiredAt}}{{quest.acquiredAt}}{{else}}<span class="dxql-muted">{{localize "DXQL.Unknown"}}</span>{{/if}}</dd>
+        <dd>{{#if acquiredAtFaces}}<a data-action="openFacesEntry" data-faces-kind="{{acquiredAtFaces.kind}}" data-faces-id="{{acquiredAtFaces.id}}" data-tooltip="DXQL.OpenInFaces">{{quest.acquiredAt}}</a>{{else if quest.acquiredAt}}{{quest.acquiredAt}}{{else}}<span class="dxql-muted">{{localize "DXQL.Unknown"}}</span>{{/if}}</dd>
       </div>
       <div class="dxql-fact dxql-places-fact">
         <dt><i class="fa-solid fa-location-dot" inert></i> <span>{{localize "DXQL.Field.Location"}}</span></dt>
@@ -245,7 +247,7 @@
           {{#if quest.locations.length}}
           <ul class="dxql-place-list">
             {{#each quest.locations}}
-            <li class="dxql-place {{#if hidden}}is-secret{{/if}}"><span>{{name}}</span>
+            <li class="dxql-place {{#if hidden}}is-secret{{/if}}">{{#if faces}}<a data-action="openFacesEntry" data-faces-kind="{{faces.kind}}" data-faces-id="{{faces.id}}" data-tooltip="DXQL.OpenInFaces">{{name}}</a>{{else}}<span>{{name}}</span>{{/if}}
               {{#if @root.isGM}}<button type="button" class="dxql-icon-btn dxql-eye {{#if hidden}}is-on{{/if}}" data-action="togglePart"
                       data-kind="locations" data-part-id="{{id}}" data-tooltip="{{#if hidden}}DXQL.RevealToPlayers{{else}}DXQL.HideFromPlayers{{/if}}">
                 <i class="fa-solid {{#if hidden}}fa-eye-slash{{else}}fa-eye{{/if}}" inert></i></button>{{/if}}

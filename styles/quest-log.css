@@ -1145,10 +1145,12 @@ a.dxql-quest-link > i { color: #c98a2c; font-size: 0.85em; }
   font-weight: 600;
   line-height: 1.4;
 }
-.dxql .dxql-place > span { overflow-wrap: anywhere; }
+.dxql .dxql-place > span,
+.dxql .dxql-place > a { overflow-wrap: anywhere; }
 .dxql .dxql-place > i { color: var(--dxql-accent); font-size: 0.85em; }
 .dxql .dxql-place.is-secret { border-style: dashed; background: transparent; }
-.dxql .dxql-place.is-secret > span { opacity: 0.75; }
+.dxql .dxql-place.is-secret > span,
+.dxql .dxql-place.is-secret > a { opacity: 0.75; }
 .dxql .dxql-place-btn {
   display: grid;
   place-items: center;

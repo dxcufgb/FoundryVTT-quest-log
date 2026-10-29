@@ -187,7 +187,7 @@
         <dd>
           <ul class="dxql-place-list">
             {{#each links}}
-            <li class="dxql-place">{{#if uuid}}<a data-action="openLink" data-uuid="{{uuid}}">{{name}}</a>{{else}}<span>{{name}}</span>{{/if}}</li>
+            <li class="dxql-place">{{#if faces}}<a data-action="openFacesEntry" data-faces-kind="{{faces.kind}}" data-faces-id="{{faces.id}}" data-tooltip="DXQL.OpenInFaces">{{name}}</a>{{else if uuid}}<a data-action="openLink" data-uuid="{{uuid}}">{{name}}</a>{{else}}<span>{{name}}</span>{{/if}}</li>
             {{/each}}
           </ul>
         </dd>

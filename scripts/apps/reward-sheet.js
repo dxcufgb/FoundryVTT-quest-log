@@ -1,5 +1,5 @@
 import {
-  MODULE_ID, TEMPLATE_PATH, LINK_TYPES, LINK_ICONS, REWARD_STATUS_ICONS, MAX_USES, t, cleanLine, enrich, formatDate, userInfo,
+  MODULE_ID, TEMPLATE_PATH, LINK_TYPES, facesEntry, openFacesEntry, LINK_ICONS, REWARD_STATUS_ICONS, MAX_USES, t, cleanLine, enrich, formatDate, userInfo,
   locationSuggestions, getDropData, linkForDrop, insertAtCursor, randomId, escapeHTML
 } from "../util.js";
 import * as store from "../store.js";
@@ -73,6 +73,7 @@ export class RewardSheet extends HandlebarsApplicationMixin(ApplicationV2) {
       toggleHidden: RewardSheet.#onToggleHidden,
       deleteReward: RewardSheet.#onDeleteReward,
       openLink: RewardSheet.#onOpenLink,
+      openFacesEntry: RewardSheet.#onOpenFacesEntry,
       openQuest: RewardSheet.#onOpenQuest
     }
   };
@@ -369,7 +370,7 @@ export class RewardSheet extends HandlebarsApplicationMixin(ApplicationV2) {
       type,
       label: t(`Reward.LinkTypes.${type}`),
       icon: LINK_ICONS[type],
-      links: reward.links.filter(l => l.type === type)
+      links: reward.links.filter(l => l.type === type).map(l => ({ ...l, faces: facesEntry(type, l.name) }))
     })).filter(g => g.links.length);
     const history = reward.log.slice().reverse().map(u => ({
       name: userInfo(u.by, u.byName).name,
@@ -712,6 +713,10 @@ export class RewardSheet extends HandlebarsApplicationMixin(ApplicationV2) {
     if (doc instanceof Scene) return doc.view();
     if (doc instanceof JournalEntryPage) return doc.parent.sheet.render({ force: true, pageId: doc.id });
     return doc.sheet?.render({ force: true });
+  }
+
+  static #onOpenFacesEntry(event, target) {
+    openFacesEntry(target.dataset.facesKind, target.dataset.facesId);
   }
 
   static #onOpenQuest(event, target) {
