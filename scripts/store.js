@@ -977,7 +977,11 @@ function galleryFields(list, raw, startIds = []) {
   (list ?? []).forEach((img, i) => {
     const src = typeof img === "string" ? img : img?.src;
     if (typeof src !== "string" || !src) return;
-    if (img?.id && current.has(img.id)) return void kept.add(img.id);
+    if (img?.id) {
+      // A stored image: keep it, or leave it deleted if someone removed it while the form was open.
+      if (current.has(img.id)) kept.add(img.id);
+      return;
+    }
     map[randomId()] = { src: src.slice(0, 500), createdBy: game.user.id, createdAt: now, sort: now + i };
   });
   for (const id of startIds) if (current.has(id) && !kept.has(id)) map[`-=${id}`] = null;
