@@ -56,6 +56,11 @@
           <input type="number" data-bind="draft.usesLeft" value="{{draft.usesLeft}}" min="0" max="{{maxUsesLimit}}" step="1"
                  placeholder="{{localize "DXQL.Reward.Placeholder.UsesLeft"}}"></label>
       </div>
+      <label class="dxql-checkbox">
+        <input type="checkbox" data-action="togglePerCharacter" {{checked draft.perCharacter}}>
+        <i class="fa-solid fa-users" inert></i> {{localize "DXQL.Reward.PerCharacter"}}
+      </label>
+      {{#if draft.perCharacter}}<p class="dxql-hint">{{perCharacterHint}}</p>{{/if}}
       <p class="dxql-hint">{{localize "DXQL.Reward.Hint.Uses"}}</p>
       {{else}}
       <p class="dxql-hint">{{localize "DXQL.Reward.Hint.NoLimit"}}</p>

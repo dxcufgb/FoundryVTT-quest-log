@@ -59,6 +59,7 @@ export class RewardSheet extends HandlebarsApplicationMixin(ApplicationV2) {
       edit: RewardSheet.#onEdit,
       cancelEdit: RewardSheet.#onCancelEdit,
       setLimited: RewardSheet.#onSetLimited,
+      togglePerCharacter: RewardSheet.#onTogglePerCharacter,
       addLink: RewardSheet.#onAddLink,
       removeLink: RewardSheet.#onRemoveLink,
       cycleLinkType: RewardSheet.#onCycleLinkType,
@@ -290,6 +291,7 @@ export class RewardSheet extends HandlebarsApplicationMixin(ApplicationV2) {
   }
 
   static #makeDraft(source = {}) {
+    const perCharacter = store.clampUses(source.perCharacter);
     const maxUses = store.clampUses(source.maxUses);
     // Empty = all uses left (a new reward is received full).
     const usesLeft = maxUses && source.usesLeft != null ? String(source.usesLeft) : "";
@@ -297,8 +299,10 @@ export class RewardSheet extends HandlebarsApplicationMixin(ApplicationV2) {
       name: source.name ?? "",
       description: source.description ?? "",
       img: source.img ?? "",
-      limited: maxUses > 0,
-      maxUses: maxUses ? String(maxUses) : "1",
+      limited: maxUses > 0 || perCharacter > 0,
+      // With perCharacter, the number field holds the uses per character; the total follows the party size.
+      perCharacter: perCharacter > 0,
+      maxUses: perCharacter ? String(perCharacter) : maxUses ? String(maxUses) : "1",
       usesLeft,
       // What "uses left" was when the form opened: it is written only when the user changes it.
       usesLeftStart: usesLeft,
@@ -357,7 +361,11 @@ export class RewardSheet extends HandlebarsApplicationMixin(ApplicationV2) {
         linkTypes: LINK_TYPES.map(id => ({ id, label: t(`Reward.LinkType.${id}`), selected: id === this.linkType })),
         linkSuggestions: [...suggestions].filter(n => !draft.links.some(l => l.name.toLowerCase() === n.toLowerCase()))
           .sort((a, b) => a.localeCompare(b)),
-        maxUsesLimit: MAX_USES
+        maxUsesLimit: MAX_USES,
+        perCharacterHint: draft.perCharacter ? t("Reward.PerCharacterHint", {
+          each: store.clampUses(draft.maxUses) || 1, party: store.partySize(),
+          total: store.clampUses((store.clampUses(draft.maxUses) || 1) * store.partySize())
+        }) : ""
       });
       return context;
     }
@@ -385,7 +393,9 @@ export class RewardSheet extends HandlebarsApplicationMixin(ApplicationV2) {
         statusLabel: t(reward.usedUp ? "Reward.UsedUp" : `Reward.Status.${reward.status}`)
       },
       pips,
-      usesLabel: reward.unlimited ? t("Reward.Unlimited") : t("Reward.UsesLeft", { left: reward.usesLeft, max: reward.maxUses }),
+      usesLabel: reward.unlimited ? t("Reward.Unlimited")
+        : t("Reward.UsesLeft", { left: reward.usesLeft, max: reward.maxUses })
+          + (reward.perCharacter ? ` (${t("Reward.PerCharacterLabel", { each: reward.perCharacter })})` : ""),
       canUse: reward.status === "active" && !reward.unlimited,
       canUndo: !reward.unlimited && reward.used > 0,
       quest: quest ? { id: quest.id, title: quest.title, hidden: quest.hidden } : null,
@@ -584,6 +594,11 @@ export class RewardSheet extends HandlebarsApplicationMixin(ApplicationV2) {
     this.render();
   }
 
+  static #onTogglePerCharacter() {
+    this.draft.perCharacter = !this.draft.perCharacter;
+    this.render();
+  }
+
   static #onSetLimited(event, target) {
     this.draft.limited = target.dataset.limited === "true";
     if (this.draft.limited && !(Number(this.draft.maxUses) > 0)) this.draft.maxUses = "1";
@@ -645,11 +660,14 @@ export class RewardSheet extends HandlebarsApplicationMixin(ApplicationV2) {
       this.element.querySelector("[data-bind='draft.maxUses']")?.focus();
       return;
     }
+    const perCharacter = draft.limited && draft.perCharacter ? max : 0;
     const data = {
       name: draft.name,
       description: draft.description,
       img: draft.img,
-      maxUses: max,
+      // A "one each" reward also stores today's total, for exports and older versions.
+      maxUses: perCharacter ? store.clampUses(perCharacter * store.partySize()) : max,
+      perCharacter,
       questId: draft.questId,
       links: draft.links
     };

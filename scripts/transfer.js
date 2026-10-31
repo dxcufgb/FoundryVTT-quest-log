@@ -295,11 +295,13 @@ export function sanitizeReward(r) {
   if (!title) return null;
   const now = Date.now();
   const maxUses = Math.min(Math.max(Math.floor(num(r.maxUses)), 0), MAX_USES);
+  const perCharacter = Math.min(Math.max(Math.floor(num(r.perCharacter)), 0), MAX_USES);
   const reward = {
     name: title,
     description: str(r.description).trim(),
     img: str(r.img, 500),
     maxUses,
+    perCharacter,
     spent: Math.min(Math.max(Math.trunc(num(r.spent)), -MAX_USES), MAX_USES),
     uses: {},
     claimed: !!r.claimed,

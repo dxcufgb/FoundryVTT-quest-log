@@ -40,7 +40,9 @@ System-agnostic. No build step and no npm dependencies.
   view `tab-note-filters.hbs` / `tab-note-list.hbs`); each view has its own search, status filter and group-by setting
   (`FILTER_SETTINGS` / `GROUP_SETTINGS`).
 - **Rewards** (`store.js`, bottom): `flags.dxcufgbs-quest-log.rewards.<id>` in the same two stores ({name, description,
-  img, maxUses (0 = no limit), spent, uses, claimed, claimedAt, questId, links}). Each use is a keyed `uses.<id>` entry
+  img, maxUses (0 = no limit), perCharacter, spent, uses, claimed, claimedAt, questId, links}). `perCharacter` > 0 = "one each":
+  `normalizeReward` computes maxUses as perCharacter × `partySize()` (settings `partySizeSource` / `partySizeFixed`), live, and
+  `rewardFields` uses that total for "uses left"; the stored `maxUses` is only a snapshot for exports. Each use is a keyed `uses.<id>` entry
   ({by, at}) so simultaneous uses both count; `spent` is the offset the edit form sets ("uses left"). Status is derived
   in `normalizeReward`: claimed when `claimed` or all uses spent. `links` are keyed {type (`LINK_TYPES`), name, uuid,
   sort} written by `linkFields` like places. A reward whose quest is in the secret store stays in the secret store

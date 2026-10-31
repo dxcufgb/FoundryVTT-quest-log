@@ -225,6 +225,17 @@
       "OfferRewards": {
         "Name": "Offer quest rewards on completion",
         "Hint": "When a quest with a reward is completed, ask the GM whether to add anything from its reward to the party's Quest Rewards. Only GMs are asked: the GM who completed the quest, or (when a player completed it) the GM in charge."
+      },
+      "PartySizeSource": {
+        "Name": "Party size for \"one each\" rewards",
+        "Hint": "Rewards given one per character (a potion each, a pinch of ash each) get their number of uses from the party size. Count the players who have a character assigned (online or not), only the players logged in right now, or use the fixed number below.",
+        "Characters": "Players with a character",
+        "Online": "Players logged in now",
+        "Fixed": "Fixed number"
+      },
+      "PartySizeFixed": {
+        "Name": "Fixed party size",
+        "Hint": "Used when the party size above is set to Fixed number."
       }
     },
     "Transfer": {
@@ -478,7 +489,10 @@
       "NotifyUsed": "{name} used {title} ({left}/{max} uses left)",
       "NotifyUsedUp": "{name} used the last use of {title}; it was moved to the claimed rewards.",
       "NotifyClaimed": "Reward claimed: {title}",
-      "NotifyRestored": "Reward active again: {title}"
+      "NotifyRestored": "Reward active again: {title}",
+      "PerCharacter": "Per character",
+      "PerCharacterHint": "One set for each character: {each} × {party} = {total} uses now. The total follows the party size (Game Settings).",
+      "PerCharacterLabel": "{each} per character"
     },
     "PartyNote": {
       "Tab": "Notes",
