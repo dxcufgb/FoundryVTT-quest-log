@@ -799,9 +799,27 @@ function questVisible(questId) {
   return !!questId && !!getQuest(questId);
 }
 
+/**
+ * How many characters the party has, for rewards given "one each" (perCharacter). Setting partySizeSource:
+ *   "characters" (default): players (non-GM users) with an assigned character, online or not;
+ *   "online": players logged in now (falls back to "characters" when none are, e.g. while the GM prepares alone);
+ *   "fixed": the partySizeFixed setting.
+ * Falls back to the number of players, then 1.
+ */
+export function partySize() {
+  const source = game.settings.get(MODULE_ID, "partySizeSource");
+  if (source === "fixed") return Math.max(1, clampUses(game.settings.get(MODULE_ID, "partySizeFixed")));
+  const players = game.users.filter(u => !u.isGM);
+  const withCharacters = players.filter(u => u.character).length || players.length;
+  if (source === "online") return players.filter(u => u.active).length || withCharacters || 1;
+  return withCharacters || 1;
+}
+
 /** Turns stored reward data into the view model. For players a link to a quest they can't see is left out. */
 export function normalizeReward(id, raw, hidden, { forGM = game.user.isGM } = {}) {
-  const maxUses = clampUses(raw.maxUses);
+  // "One each": the number of uses follows the party size, so the reward fits the table that plays it.
+  const perCharacter = clampUses(raw.perCharacter);
+  const maxUses = perCharacter ? clampUses(perCharacter * partySize()) : clampUses(raw.maxUses);
   const log = sortedEntries(raw.uses).map(u => ({ id: u.id, by: u.by ?? null, byName: u.byName ?? null, at: u.at ?? 0 }));
   const spent = Math.trunc(Number(raw.spent)) || 0;
   const used = Math.max(0, spent + log.length);
@@ -815,6 +833,7 @@ export function normalizeReward(id, raw, hidden, { forGM = game.user.isGM } = {}
     description: String(raw.description ?? ""),
     img: typeof raw.img === "string" ? raw.img : "",
     maxUses,
+    perCharacter,
     unlimited: !maxUses,
     usesLeft,
     used: maxUses ? Math.min(used, maxUses) : used,
@@ -911,10 +930,12 @@ function rewardFields(data, raw = null) {
   if ("description" in data) out.description = String(data.description ?? "").trim();
   if ("img" in data) out.img = typeof data.img === "string" ? data.img.slice(0, 500) : "";
   if ("maxUses" in data) out.maxUses = clampUses(data.maxUses);
+  if ("perCharacter" in data) out.perCharacter = clampUses(data.perCharacter);
   if ("questId" in data) out.questId = typeof data.questId === "string" && /^[A-Za-z0-9]{0,32}$/.test(data.questId) ? data.questId : "";
   if ("links" in data) out.links = linkFields(data.links, raw);
   // "N uses left" from the form: the uses already logged stay, `spent` makes up the difference.
-  const max = out.maxUses ?? clampUses(raw?.maxUses);
+  const per = out.perCharacter ?? clampUses(raw?.perCharacter);
+  const max = per ? clampUses(per * partySize()) : out.maxUses ?? clampUses(raw?.maxUses);
   if ("usesLeft" in data && max) {
     const logged = Object.values(raw?.uses ?? {}).filter(u => u && typeof u === "object").length;
     const left = Math.min(clampUses(data.usesLeft), max);
@@ -940,7 +961,7 @@ export async function createReward(data = {}, { hidden = false } = {}) {
   const id = randomId();
   const now = Date.now();
   const reward = {
-    name: "", description: "", img: "", maxUses: 0, spent: 0, uses: {}, claimed: false, claimedAt: 0, questId: "", links: {},
+    name: "", description: "", img: "", maxUses: 0, perCharacter: 0, spent: 0, uses: {}, claimed: false, claimedAt: 0, questId: "", links: {},
     ...rewardFields(data),
     createdBy: game.user.id,
     createdAt: now,

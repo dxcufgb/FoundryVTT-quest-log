@@ -32,6 +32,23 @@ function registerSettings() {
     hint: "DXQL.Settings.OfferRewards.Hint",
     scope: "world", config: true, type: Boolean, default: true
   });
+  game.settings.register(MODULE_ID, "partySizeSource", {
+    name: "DXQL.Settings.PartySizeSource.Name",
+    hint: "DXQL.Settings.PartySizeSource.Hint",
+    scope: "world", config: true, type: String, default: "characters",
+    choices: {
+      characters: "DXQL.Settings.PartySizeSource.Characters",
+      online: "DXQL.Settings.PartySizeSource.Online",
+      fixed: "DXQL.Settings.PartySizeSource.Fixed"
+    },
+    onChange: refreshAll
+  });
+  game.settings.register(MODULE_ID, "partySizeFixed", {
+    name: "DXQL.Settings.PartySizeFixed.Name",
+    hint: "DXQL.Settings.PartySizeFixed.Hint",
+    scope: "world", config: true, type: Number, default: 4, range: { min: 1, max: 12, step: 1 },
+    onChange: refreshAll
+  });
   game.settings.register(MODULE_ID, "adventureImport", {
     name: "DXQL.Settings.AdventureImport.Name",
     hint: "DXQL.Settings.AdventureImport.Hint",
@@ -364,8 +381,18 @@ Hooks.on("renderJournalDirectory", (app, html) => {
   }
 });
 
+// Rewards given "one each" count the party: refresh when a player's character changes or someone logs in or out.
+Hooks.on("userConnected", () => {
+  try {
+    if (game.settings.get(MODULE_ID, "partySizeSource") === "online") refreshAll();
+  } catch (err) {
+    console.error(`${MODULE_ID} | userConnected`, err);
+  }
+});
+
 // User names and colours show in notes, in the Notes list and in the log of reward uses.
 Hooks.on("updateUser", (user, changes) => {
+  if ("character" in changes) refreshAll();
   if ("name" in changes || "color" in changes) {
     QuestSheet.refreshAll();
     RewardSheet.refreshAll();
