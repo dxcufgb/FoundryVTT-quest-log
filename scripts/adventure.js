@@ -17,6 +17,8 @@ import { parseExportData, sanitizeQuest, sanitizeReward, sanitizePartyNote, with
  *   - @Reward[id]{label} links a quest reward the same way. Adventures can bring rewards too ("rewards" in questLog).
  *   - @PartyNote[id]{label} links one of the party's notes (the Notes view). Adventures can bring notes too
  *     ("partyNotes" in questLog), e.g. handouts prepared hidden.
+ *   - The adventure's import window gets a "Quest Log" box with how many quests, quest rewards and notes the
+ *     adventure brings and a checkbox for each, so the GM picks what is added to the log.
  */
 
 export const ADVENTURE_FLAG = "questLog";
@@ -107,11 +109,25 @@ async function resolveAdventure(adventure) {
   return adventure?.documentName === "Adventure" ? adventure : null;
 }
 
+/** How many quests, rewards and notes an Adventure brings, or null when it brings none. */
+export function adventureCounts(adventure) {
+  const data = adventureQuestData(adventure);
+  if (!data || typeof data !== "object") return null;
+  const count = list => (Array.isArray(list) ? list.filter(e => e && typeof e === "object").length : 0);
+  const list = Array.isArray(data);
+  return {
+    quests: count(list ? data : data.quests),
+    rewards: list ? 0 : count(data.rewards),
+    partyNotes: list ? 0 : count(data.partyNotes)
+  };
+}
+
 /**
  * GM: adds the quests stored on an Adventure to the quest log. Quests without a "hidden" field are hidden.
- * Quests already in the log are skipped. Returns {added, skipped, hidden} or null.
+ * Quests already in the log are skipped. quests / rewards / partyNotes false leave that kind out.
+ * Returns {added, skipped, hidden, rewards, partyNotes} or null.
  */
-export async function importAdventureQuests(adventure, { notify = true } = {}) {
+export async function importAdventureQuests(adventure, { notify = true, quests = true, rewards = true, partyNotes = true } = {}) {
   if (!game.user.isGM) return null;
   adventure = await resolveAdventure(adventure);
   const data = adventureQuestData(adventure);
@@ -119,6 +135,7 @@ export async function importAdventureQuests(adventure, { notify = true } = {}) {
     if (notify && adventure) ui.notifications.warn(t("Adventure.NoQuests", { title: escapeHTML(adventure.name) }));
     return null;
   }
+  if (!quests && !rewards && !partyNotes) return null;
   const stores = { shared: getStore("shared"), secret: getStore("secret") };
   if (!stores.shared || !stores.secret) {
     ui.notifications.warn(t("NotReady"));
@@ -135,8 +152,10 @@ export async function importAdventureQuests(adventure, { notify = true } = {}) {
   const known = new Set(STORE_KINDS.flatMap(kind => Object.keys(stores[kind].getFlag(MODULE_ID, "quests") ?? {})));
   const maps = { shared: {}, secret: {} };
   const now = Date.now();
-  const result = { added: 0, skipped: 0, hidden: 0 };
-  parsed.quests.forEach(({ id, hidden, quest }, i) => {
+  const result = { added: 0, skipped: 0, hidden: 0, rewards: 0, partyNotes: 0 };
+  // Quests the adventure keeps hidden, even when the quests themselves aren't imported: their rewards and notes stay hidden.
+  const hiddenQuests = new Set(parsed.quests.filter(q => q.hidden).map(q => q.id));
+  if (quests) parsed.quests.forEach(({ id, hidden, quest }, i) => {
     if (known.has(id)) return void result.skipped++;
     // The adventure's order is kept: the newest-first list shows the first quest at the top.
     quest.createdAt = now;
@@ -152,21 +171,25 @@ export async function importAdventureQuests(adventure, { notify = true } = {}) {
   // Rewards the adventure brings: also hidden unless marked visible, never replacing one already in the log.
   const knownRewards = new Set(STORE_KINDS.flatMap(kind => Object.keys(stores[kind].getFlag(MODULE_ID, "rewards") ?? {})));
   const rewardMaps = { shared: {}, secret: {} };
-  for (const { id, hidden, reward } of parsed.rewards) {
+  if (rewards) for (const { id, hidden, reward } of parsed.rewards) {
     if (knownRewards.has(id)) continue;
     // A reward from a hidden quest stays hidden with it.
-    const secret = hidden || !!maps.secret[reward.questId] || !!stores.secret.getFlag(MODULE_ID, "quests")?.[reward.questId];
+    const secret = hidden || hiddenQuests.has(reward.questId) || !!maps.secret[reward.questId]
+      || !!stores.secret.getFlag(MODULE_ID, "quests")?.[reward.questId];
     reward.createdAt = now;
     rewardMaps[secret ? "secret" : "shared"][id] = reward;
+    result.rewards++;
   }
   // Notes the adventure brings (handouts, rumours …): the same rules as rewards.
   const knownNotes = new Set(STORE_KINDS.flatMap(kind => Object.keys(stores[kind].getFlag(MODULE_ID, "partyNotes") ?? {})));
   const noteMaps = { shared: {}, secret: {} };
-  for (const { id, hidden, note } of parsed.partyNotes) {
+  if (partyNotes) for (const { id, hidden, note } of parsed.partyNotes) {
     if (knownNotes.has(id)) continue;
-    const secret = hidden || !!maps.secret[note.questId] || !!stores.secret.getFlag(MODULE_ID, "quests")?.[note.questId];
+    const secret = hidden || hiddenQuests.has(note.questId) || !!maps.secret[note.questId]
+      || !!stores.secret.getFlag(MODULE_ID, "quests")?.[note.questId];
     note.createdAt = now;
     noteMaps[secret ? "secret" : "shared"][id] = note;
+    result.partyNotes++;
   }
   const options = { [MODULE_ID]: { type: "imported" } };
   for (const kind of STORE_KINDS) {
@@ -180,6 +203,9 @@ export async function importAdventureQuests(adventure, { notify = true } = {}) {
     const title = escapeHTML(adventure.name);
     if (result.added) ui.notifications.info(t("Adventure.Imported", { count: result.added, hidden: result.hidden, title }));
     if (result.skipped) ui.notifications.info(t("Adventure.Skipped", { count: result.skipped, title }));
+    if (result.rewards || result.partyNotes) {
+      ui.notifications.info(t("Adventure.ImportedExtras", { rewards: result.rewards, notes: result.partyNotes, title }));
+    }
   }
   return result;
 }
@@ -416,17 +442,99 @@ export function registerQuestLinks() {
 }
 
 /* -------------------------------------------- */
+/*  The adventure's import window               */
+/* -------------------------------------------- */
+
+const IMPORT_KINDS = [
+  { key: "quests", name: "dxqlImportQuests", label: "Adventure.ImportQuests", icon: "fa-solid fa-scroll" },
+  { key: "rewards", name: "dxqlImportRewards", label: "Adventure.ImportRewards", icon: "fa-solid fa-gift" },
+  { key: "partyNotes", name: "dxqlImportNotes", label: "Adventure.ImportNotes", icon: "fa-solid fa-note-sticky" }
+];
+
+/** What the GM ticked in an import window, by adventure uuid (kept across re-renders of the window). */
+const importChoices = new Map();
+
+/** Adds the "Quest Log" box with counts and checkboxes to an adventure's import window. */
+function onRenderImporter(app, html) {
+  if (!game.user.isGM) return;
+  const root = html instanceof HTMLElement ? html : (html?.[0] ?? app.element);
+  const adventure = app.adventure ?? app.document ?? app.object;
+  // The first render can be of the shallow index entry, before the adventure (and its flags) has loaded.
+  const counts = adventureCounts(adventure);
+  if (!(root instanceof HTMLElement) || !counts) return;
+  const kinds = IMPORT_KINDS.filter(k => counts[k.key] > 0);
+  if (!kinds.length) return;
+  root.querySelector(".dxql-adventure-import")?.remove();
+
+  const fallback = game.settings.get(MODULE_ID, "adventureImport");
+  const choice = importChoices.get(adventure.uuid) ?? Object.fromEntries(IMPORT_KINDS.map(k => [k.key, fallback]));
+  importChoices.set(adventure.uuid, choice);
+
+  const box = document.createElement("fieldset");
+  box.className = "dxql-adventure-import";
+  box.innerHTML = `<legend>${escapeHTML(t("Adventure.ImportLegend"))}</legend>
+    <ul class="dxql-adventure-import-list">${kinds.map(k => `
+      <li><label>
+        <input type="checkbox" name="${k.name}"${choice[k.key] ? " checked" : ""}>
+        <i class="${k.icon}" inert></i>
+        <span class="dxql-adventure-import-label">${escapeHTML(t(k.label))}</span>
+        <span class="dxql-adventure-import-count">${counts[k.key]}</span>
+      </label></li>`).join("")}
+    </ul>
+    <p class="hint">${escapeHTML(t("Adventure.ImportHint"))}</p>`;
+  box.addEventListener("change", event => {
+    const kind = IMPORT_KINDS.find(k => k.name === event.target?.name);
+    if (!kind) return;
+    choice[kind.key] = event.target.checked;
+    // The window's own change handler is about its document checkboxes, not these.
+    event.stopPropagation();
+  });
+
+  // Next to the adventure's own contents list; otherwise at the end of the window's body.
+  const contents = root.querySelector('input[name="importFields"]')?.closest("fieldset, ul, ol, section");
+  if (contents) contents.after(box);
+  else {
+    const body = root.querySelector('[data-application-part="body"]');
+    const footer = root.querySelector(".form-footer, footer");
+    if (body) body.append(box);
+    else if (footer) footer.before(box);
+    else (root.querySelector("form") ?? root.querySelector(".window-content") ?? root).append(box);
+  }
+}
+
+/** What to import: the import window's checkboxes (form data, else what was ticked), else the setting. */
+function importChoice(adventure, options) {
+  const ticked = importChoices.get(adventure?.uuid);
+  importChoices.delete(adventure?.uuid);
+  const fallback = game.settings.get(MODULE_ID, "adventureImport");
+  return Object.fromEntries(IMPORT_KINDS.map(k => [
+    k.key, typeof options?.[k.name] === "boolean" ? options[k.name] : (ticked?.[k.key] ?? fallback)
+  ]));
+}
+
+/* -------------------------------------------- */
 /*  Hooks                                       */
 /* -------------------------------------------- */
 
 export function registerAdventureHooks() {
+  for (const hook of ["renderAdventureImporterV2", "renderAdventureImporter"]) {
+    Hooks.on(hook, (app, html) => {
+      try {
+        onRenderImporter(app, html);
+      } catch (err) {
+        console.error(`${MODULE_ID} | ${hook}`, err);
+      }
+    });
+  }
   // Runs only on the client that imported the adventure.
   Hooks.on("importAdventure", async (adventure, options, created) => {
     try {
       if (!game.user.isGM) return;
+      // Read before anything is awaited: the window closes after the import.
+      const choice = importChoice(adventure, options);
       const newIds = new Set((created?.JournalEntry ?? []).map(d => d.id));
       await consolidateStores({ newIds });
-      if (adventureQuestData(adventure) && game.settings.get(MODULE_ID, "adventureImport")) await importAdventureQuests(adventure);
+      if (adventureQuestData(adventure) && Object.values(choice).some(Boolean)) await importAdventureQuests(adventure, choice);
     } catch (err) {
       console.error(`${MODULE_ID} | importAdventure`, err);
     }
