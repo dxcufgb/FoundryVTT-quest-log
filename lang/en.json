@@ -287,11 +287,10 @@
       "Imported": "Added {count} quests from {title} to the quest log ({hidden} hidden from players).",
       "Skipped": "{count} quests from {title} were already in the quest log and were left as they are.",
       "ImportedExtras": "Added {rewards} quest rewards and {notes} notes from {title} to the quest log.",
-      "ImportLegend": "Quest Log",
       "ImportQuests": "Quests",
       "ImportRewards": "Quest Rewards",
-      "ImportNotes": "Notes",
-      "ImportHint": "Add these to the quest log, hidden from players until revealed. Anything already in the log is left as it is.",
+      "ImportNotes": "Quest Log Notes",
+      "ImportHint": "Added to the quest log, hidden from players until revealed. Anything already in the log is left as it is.",
       "NotAnAdventure": "That isn't an Adventure.",
       "StoreError": "Could not store the quest log in {title}: {error}",
       "Stored": "Stored {count} quests in {title}."

@@ -454,7 +454,30 @@ const IMPORT_KINDS = [
 /** What the GM ticked in an import window, by adventure uuid (kept across re-renders of the window). */
 const importChoices = new Map();
 
-/** Adds the "Quest Log" box with counts and checkboxes to an adventure's import window. */
+/** The importer's own "Import All" checkbox and the row of one of its content types (to copy its look). */
+function importerRows(root) {
+  const inputs = [...root.querySelectorAll('input[name="importFields"]')];
+  const all = inputs.find(i => i.value === "all") ?? null;
+  const last = inputs.filter(i => i !== all).at(-1);
+  if (!last) return { all, row: null };
+  // The largest element around the checkbox that holds no other content type's checkbox: one row of the list.
+  let row = last;
+  while (row.parentElement && row.parentElement !== root
+    && row.parentElement.querySelectorAll('input[name="importFields"]').length === 1) row = row.parentElement;
+  return { all, row };
+}
+
+/** Disabled and ticked while "Import All" is ticked (like the importer's own rows), else the GM's choice. */
+function syncImportRows(rows, all, choice) {
+  const everything = !!all?.checked;
+  for (const input of rows.map(r => r.querySelector("input"))) {
+    const kind = IMPORT_KINDS.find(k => k.name === input.name);
+    input.disabled = everything;
+    input.checked = everything || choice[kind.key];
+  }
+}
+
+/** Adds quests, quest rewards and notes, with their counts, to the contents list of an adventure's import window. */
 function onRenderImporter(app, html) {
   if (!game.user.isGM) return;
   const root = html instanceof HTMLElement ? html : (html?.[0] ?? app.element);
@@ -464,51 +487,69 @@ function onRenderImporter(app, html) {
   if (!(root instanceof HTMLElement) || !counts) return;
   const kinds = IMPORT_KINDS.filter(k => counts[k.key] > 0);
   if (!kinds.length) return;
-  root.querySelector(".dxql-adventure-import")?.remove();
+  for (const el of root.querySelectorAll("[data-dxql-import]")) el.remove();
 
   const fallback = game.settings.get(MODULE_ID, "adventureImport");
   const choice = importChoices.get(adventure.uuid) ?? Object.fromEntries(IMPORT_KINDS.map(k => [k.key, fallback]));
   importChoices.set(adventure.uuid, choice);
 
-  const box = document.createElement("fieldset");
-  box.className = "dxql-adventure-import";
-  box.innerHTML = `<legend>${escapeHTML(t("Adventure.ImportLegend"))}</legend>
-    <ul class="dxql-adventure-import-list">${kinds.map(k => `
-      <li><label>
-        <input type="checkbox" name="${k.name}"${choice[k.key] ? " checked" : ""}>
-        <i class="${k.icon}" inert></i>
-        <span class="dxql-adventure-import-label">${escapeHTML(t(k.label))}</span>
-        <span class="dxql-adventure-import-count">${counts[k.key]}</span>
-      </label></li>`).join("")}
-    </ul>
-    <p class="hint">${escapeHTML(t("Adventure.ImportHint"))}</p>`;
-  box.addEventListener("change", event => {
-    const kind = IMPORT_KINDS.find(k => k.name === event.target?.name);
-    if (!kind) return;
-    choice[kind.key] = event.target.checked;
-    // The window's own change handler is about its document checkboxes, not these.
-    event.stopPropagation();
+  const { all, row: sample } = importerRows(root);
+  const tag = sample?.tagName === "LI" ? "li" : sample?.tagName === "DIV" ? "div" : "label";
+  const hint = t("Adventure.ImportHint");
+  const rows = kinds.map(k => {
+    const row = document.createElement(tag);
+    if (sample?.className) row.className = sample.className;
+    row.dataset.dxqlImport = k.key;
+    row.dataset.tooltip = hint;
+    const inner = `<input type="checkbox" name="${k.name}">
+      <i class="${k.icon}" inert></i> ${counts[k.key]} ${escapeHTML(t(k.label))}`;
+    row.innerHTML = tag === "label" ? inner : `<label class="checkbox">${inner}</label>`;
+    const input = row.querySelector("input");
+    input.addEventListener("change", event => {
+      choice[k.key] = input.checked;
+      // The window's own change handler is about its document checkboxes, not these.
+      event.stopPropagation();
+    });
+    return row;
   });
 
-  // Next to the adventure's own contents list; otherwise at the end of the window's body.
-  const contents = root.querySelector('input[name="importFields"]')?.closest("fieldset, ul, ol, section");
-  if (contents) contents.after(box);
+  if (sample) sample.after(...rows);
   else {
+    const list = document.createElement("div");
+    list.className = "dxql-adventure-import";
+    list.dataset.dxqlImport = "list";
+    list.append(...rows);
     const body = root.querySelector('[data-application-part="body"]');
     const footer = root.querySelector(".form-footer, footer");
-    if (body) body.append(box);
-    else if (footer) footer.before(box);
-    else (root.querySelector("form") ?? root.querySelector(".window-content") ?? root).append(box);
+    if (body) body.append(list);
+    else if (footer) footer.before(list);
+    else (root.querySelector("form") ?? root.querySelector(".window-content") ?? root).append(list);
   }
+
+  syncImportRows(rows, all, choice);
+  if (all && !all.dataset.dxqlBound) {
+    all.dataset.dxqlBound = "true";
+    all.addEventListener("change", () => {
+      const current = [...root.querySelectorAll("[data-dxql-import]")].filter(el => el.dataset.dxqlImport !== "list");
+      syncImportRows(current, all, choice);
+    });
+  }
+  // Read at import time: the window's "Import All" (the element of the latest render).
+  choice.importAll = () => !!all?.checked;
 }
 
-/** What to import: the import window's checkboxes (form data, else what was ticked), else the setting. */
+/**
+ * What to import: everything when the window's "Import All" is ticked; else its checkboxes (form data, else what
+ * was ticked); else, for an import without the window, the setting.
+ */
 function importChoice(adventure, options) {
   const ticked = importChoices.get(adventure?.uuid);
   importChoices.delete(adventure?.uuid);
+  const fields = options?.importFields;
+  const everything = (Array.isArray(fields) ? fields.includes("all") : fields === "all") || !!ticked?.importAll?.();
   const fallback = game.settings.get(MODULE_ID, "adventureImport");
   return Object.fromEntries(IMPORT_KINDS.map(k => [
-    k.key, typeof options?.[k.name] === "boolean" ? options[k.name] : (ticked?.[k.key] ?? fallback)
+    k.key, everything || (typeof options?.[k.name] === "boolean" ? options[k.name] : (ticked?.[k.key] ?? fallback))
   ]));
 }
 
