@@ -88,7 +88,7 @@ System-agnostic. No build step and no npm dependencies.
 - `MODULE_ID` must equal `id` in `module.json`; CI checks it.
 - Every visible setting (`config: true`) needs a Name and Hint in `lang/en.json`; CI checks it.
 - Strings go through `t()` (`DXQL.` prefix). Hook handlers catch and `console.error` their errors.
-- Update `README.md` when behaviour, settings or the API change.
+- Update the wiki (not `README.md`, which only has the install steps and links to the wiki) when behaviour, settings or the API change.
 
 ## Review focus
 - **Concurrent edits**: never write the whole `quests` map or a whole quest from a stale copy; write only the
