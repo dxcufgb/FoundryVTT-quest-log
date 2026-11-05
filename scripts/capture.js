@@ -3,6 +3,7 @@ import * as store from "./store.js";
 import { QuestSheet } from "./apps/quest-sheet.js";
 import { RewardSheet } from "./apps/reward-sheet.js";
 import { PartyNoteSheet } from "./apps/party-note-sheet.js";
+import { crumb } from "./debug-recorder.js";
 
 const { DialogV2 } = foundry.applications.api;
 const NEW_QUEST = "__new";
@@ -24,8 +25,12 @@ let lastQuestId = null;
  * @param {string} [entry.title]         Suggested title for a new quest.
  */
 export async function addToQuestLog({ text = "", images = [], source = null, type = "note", title = "" } = {}) {
-  if (!store.storesReady()) return ui.notifications.warn(t("NotReady"));
+  if (!store.storesReady()) {
+    crumb("capture.notReady", { target: "quest" });
+    return ui.notifications.warn(t("NotReady"));
+  }
   text = String(text).trim().slice(0, MAX_TEXT);
+  crumb("capture.open", { type: TYPES.includes(type) || type === "quest" ? type : "other", images: images.length, hasSource: !!source });
   if (type === "quest") return startQuestFrom({ text, images, source, title });
 
   const quests = store.allQuests();
@@ -113,6 +118,9 @@ export async function addToQuestLog({ text = "", images = [], source = null, typ
   const entryText = String(result.text ?? "").trim();
   const entryImages = result.images ?? [];
   const hidden = !!(game.user.isGM && result.hidden);
+  crumb("capture.add", {
+    type: entryType, target: result.questId === NEW_QUEST ? "newQuest" : "existingQuest", hidden, images: entryImages.length
+  });
 
   if (result.questId === NEW_QUEST) {
     const draft = { title: cleanLine(result.title, 120) };
@@ -152,7 +160,11 @@ function startQuestFrom({ text, images, source, title }) {
  * description with a link back to where it came from, and the first image.
  */
 export function addAsReward({ text = "", images = [], source = null, title = "" } = {}) {
-  if (!store.storesReady()) return ui.notifications.warn(t("NotReady"));
+  if (!store.storesReady()) {
+    crumb("capture.notReady", { target: "reward" });
+    return ui.notifications.warn(t("NotReady"));
+  }
+  crumb("capture.open", { type: "reward", images: images.length, hasSource: !!source });
   const link = source?.uuid ? `${t("From")}: @UUID[${source.uuid}]{${String(source.label).replace(/[{}[\]]/g, "")}}` : "";
   const body = String(text ?? "").trim().slice(0, MAX_TEXT);
   return RewardSheet.createNew({
@@ -167,7 +179,11 @@ export function addAsReward({ text = "", images = [], source = null, title = "" 
  * text with a link back to where it came from, and its images.
  */
 export function addAsPartyNote({ text = "", images = [], source = null, title = "" } = {}) {
-  if (!store.storesReady()) return ui.notifications.warn(t("NotReady"));
+  if (!store.storesReady()) {
+    crumb("capture.notReady", { target: "partyNote" });
+    return ui.notifications.warn(t("NotReady"));
+  }
+  crumb("capture.open", { type: "partyNote", images: images.length, hasSource: !!source });
   const link = source?.uuid ? `${t("From")}: @UUID[${source.uuid}]{${String(source.label).replace(/[{}[\]]/g, "")}}` : "";
   const body = String(text ?? "").trim().slice(0, MAX_TEXT);
   return PartyNoteSheet.createNew({

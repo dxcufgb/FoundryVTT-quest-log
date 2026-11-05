@@ -1,4 +1,5 @@
 import { MODULE_ID, t, randomId, escapeHTML } from "./util.js";
+import { crumb, noteError } from "./debug-recorder.js";
 
 /*
  * Image uploads. Users with Foundry's "Upload new files" permission upload directly into the world's quest-log
@@ -33,11 +34,13 @@ export function registerImageSocket() {
       }
     } catch (err) {
       console.error(`${MODULE_ID} | socket`, err);
+      noteError("socket");
     }
   });
 }
 
 async function relayUpload({ requestId, userId, name, data }) {
+  crumb("socket.relay.receive", { action: "upload" });
   let path = null;
   let error = null;
   try {
@@ -50,6 +53,7 @@ async function relayUpload({ requestId, userId, name, data }) {
   } catch (err) {
     error = err.message;
     console.error(`${MODULE_ID} | relayed upload failed`, err);
+    noteError("upload.relay");
   }
   game.socket.emit(SOCKET, { action: "uploaded", requestId, userId, path, error });
 }
@@ -128,9 +132,11 @@ async function uploadViaGM(file) {
   return new Promise((resolve, reject) => {
     const timer = setTimeout(() => {
       pending.delete(requestId);
+      crumb("socket.relay.timeout", { pending: pending.size });
       reject(new Error(t("UploadTimeout")));
     }, 60000);
     pending.set(requestId, { resolve, reject, timer });
+    crumb("socket.relay.send", { action: "upload", kb: Math.round((data?.length ?? 0) / 1024), pending: pending.size });
     game.socket.emit(SOCKET, { action: "upload", requestId, gmId: gm.id, userId: game.user.id, name: file.name, data });
   });
 }
@@ -138,8 +144,16 @@ async function uploadViaGM(file) {
 /** Uploads one image file and returns its path. Throws with a readable message. */
 export async function uploadImage(file) {
   const prepared = await prepare(file);
-  if (game.user.can("FILES_UPLOAD")) return uploadDirect(prepared);
+  const direct = game.user.can("FILES_UPLOAD");
+  const type = prepared.type.split("/")[1] ?? "";
+  crumb("image.upload", { route: direct ? "direct" : "relay", type: /^[a-z0-9.+-]{1,20}$/.test(type) ? type : "other" });
+  if (direct) return uploadDirect(prepared);
   return uploadViaGM(prepared);
+}
+
+/** For the debug snapshot: relayed uploads still waiting for the GM, and whether the image folder was checked. */
+export function uploadState() {
+  return { pendingRelays: pending.size, folderChecked: folderReady !== null };
 }
 
 /** Uploads several files, reporting failures, and returns the paths that worked. */

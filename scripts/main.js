@@ -1,15 +1,16 @@
-import { MODULE_ID, FACES_ID, t, escapeHTML, isResponsibleGM } from "./util.js";
+import { MODULE_ID, FACES_ID, STATUSES, QUEST_TYPES, REWARD_STATUSES, PART_KINDS, t, escapeHTML, isResponsibleGM } from "./util.js";
 import * as store from "./store.js";
 import { QuestLogTab, GROUP_MODES, REWARD_GROUP_MODES, NOTE_GROUP_MODES, NOTE_FILTERS, VIEWS } from "./apps/quest-log-tab.js";
 import { QuestSheet } from "./apps/quest-sheet.js";
 import { RewardSheet } from "./apps/reward-sheet.js";
 import { PartyNoteSheet } from "./apps/party-note-sheet.js";
-import { registerImageSocket } from "./images.js";
+import { registerImageSocket, uploadState } from "./images.js";
 import { registerContextMenus, addToQuestLog, addAsReward, addAsPartyNote } from "./capture.js";
-import { exportQuests, importQuests } from "./transfer.js";
+import { exportQuests, importQuests, FORMAT as EXPORT_FORMAT } from "./transfer.js";
 import { DeleteAllQuestsMenu, confirmDeleteAll } from "./delete-all.js";
 import { registerQuestLinks, registerAdventureHooks, tidyStoresOnReady, importAdventureQuests, storeInAdventure } from "./adventure.js";
-import { registerNpcLinks } from "./npcs.js";
+import { registerNpcLinks, facesActive } from "./npcs.js";
+import { crumb, noteError, errorSummary, registerDebugRecorder } from "./debug-recorder.js";
 
 /* -------------------------------------------- */
 /*  Settings and the sidebar tab                */
@@ -239,6 +240,7 @@ async function offerCategoryConversion() {
   if (!game.settings.get(MODULE_ID, "categoryTagsPrompt")) return;
   const count = store.countCategoryTags();
   if (!count) return;
+
   const choice = await foundry.applications.api.DialogV2.wait({
     window: { title: t("Convert.Title"), icon: "fa-solid fa-wand-magic-sparkles" },
     position: { width: 440 },
@@ -253,8 +255,98 @@ async function offerCategoryConversion() {
   if (choice === "never") return game.settings.set(MODULE_ID, "categoryTagsPrompt", false);
   if (choice !== "convert") return;
   const changed = await store.convertCategoryTags();
+  crumb("migration.categoryTags", { quests: count, changed });
   await game.settings.set(MODULE_ID, "categoryTagsPrompt", false);
   ui.notifications.info(t("Convert.Done", { count: changed }));
+}
+
+/* -------------------------------------------- */
+/*  Debug Recorder snapshot (optional)          */
+/* -------------------------------------------- */
+
+const countBy = (list, key, values) => Object.fromEntries(values.map(v => [v, list.filter(e => e[key] === v).length]));
+
+/**
+ * What Dxcufgb's Debug Recorder stores about the quest log when the GM records. Only counts, booleans and this
+ * module's own enum values: never titles, text, tags, names, image paths or URLs.
+ */
+function debugSnapshot() {
+  const ready = store.storesReady();
+  const quests = ready ? store.allQuests() : [];
+  const rewards = ready ? store.allRewards() : [];
+  const notes = ready ? store.allPartyNotes() : [];
+  const parts = Object.fromEntries(PART_KINDS.map(kind => [kind, quests.reduce((n, q) => n + (q[kind]?.length ?? 0), 0)]));
+  const hiddenParts = Object.fromEntries(PART_KINDS.map(kind =>
+    [kind, quests.reduce((n, q) => n + (q[kind] ?? []).filter(p => p.hidden).length, 0)]));
+  const duplicateStores = Object.fromEntries(store.STORE_KINDS.map(kind =>
+    [kind, game.journal?.filter(j => j.getFlag(MODULE_ID, "store") === kind).length ?? 0]));
+  const openSheets = { quest: 0, questEditing: 0, reward: 0, partyNote: 0 };
+  for (const app of foundry.applications.instances.values()) {
+    if (app instanceof QuestSheet) {
+      openSheets.quest++;
+      if (app.editing) openSheets.questEditing++;
+    } else if (app instanceof RewardSheet) openSheets.reward++;
+    else if (app instanceof PartyNoteSheet) openSheets.partyNote++;
+  }
+  return {
+    exportFormat: EXPORT_FORMAT,
+    isGM: game.user.isGM,
+    responsibleGM: isResponsibleGM(),
+    activeGMPresent: !!game.users.activeGM,
+    canUploadFiles: !!game.user.can?.("FILES_UPLOAD"),
+    stores: {
+      ready,
+      shared: !!store.getStore("shared"),
+      secret: !!store.getStore("secret"),
+      secretObservable: !!store.getStore("secret")?.testUserPermission(game.user, "OBSERVER"),
+      journalsPerKind: duplicateStores
+    },
+    // What this user can see (a player's counts leave out hidden quests and parts, as their UI does).
+    quests: {
+      total: quests.length,
+      byStatus: countBy(quests, "status", STATUSES),
+      hidden: quests.filter(q => q.hidden).length,
+      byType: countBy(quests, "questType", [...QUEST_TYPES, ""]),
+      withHiddenFields: quests.filter(q => q.hiddenFields.length).length,
+      legacyLocation: quests.filter(q => q.locations.some(l => l.id === "legacy")).length,
+      parts,
+      hiddenParts,
+      autoNpcs: quests.reduce((n, q) => n + q.npcs.filter(p => p.auto).length, 0),
+      categoryTagsToConvert: game.user.isGM && ready ? store.countCategoryTags() : null
+    },
+    rewards: {
+      total: rewards.length,
+      byStatus: countBy(rewards, "status", REWARD_STATUSES),
+      hidden: rewards.filter(r => r.hidden).length,
+      unlimited: rewards.filter(r => r.unlimited).length,
+      perCharacter: rewards.filter(r => r.perCharacter > 0).length,
+      withQuest: rewards.filter(r => r.questId).length,
+      partySize: ready ? store.partySize() : null
+    },
+    partyNotes: {
+      total: notes.length,
+      hidden: notes.filter(n => n.hidden).length,
+      pinned: notes.filter(n => n.pinned).length,
+      withQuest: notes.filter(n => n.questId).length
+    },
+    ui: {
+      tabRendered: !!ui.questlog?.rendered,
+      popoutRendered: !!ui.questlog?.popout?.rendered,
+      view: QuestLogTab.currentView,
+      searchActive: { quests: !!QuestLogTab.search, rewards: !!QuestLogTab.rewardSearch, notes: !!QuestLogTab.noteSearch },
+      tagFilterActive: !!QuestLogTab.tagFilter || !!QuestLogTab.noteTagFilter,
+      collapsedGroups: QuestLogTab.collapsed?.size ?? 0,
+      openSheets,
+      selectionMenuOpen: !!document.getElementById("dxql-context-menu")
+    },
+    uploads: uploadState(),
+    integrations: {
+      familiarFaces: !!game.modules.get(FACES_ID)?.active,
+      familiarFacesApi: facesActive(),
+      familiarFacesVersion: game.modules.get(FACES_ID)?.active ? game.modules.get(FACES_ID).version ?? null : null
+    },
+    errors: errorSummary()
+  };
 }
 
 /* -------------------------------------------- */
@@ -271,6 +363,7 @@ Hooks.once("init", () => {
 });
 
 Hooks.once("ready", async () => {
+  registerDebugRecorder({ snapshot: debugSnapshot });
   try {
     registerImageSocket();
     await store.ensureStores();
@@ -328,8 +421,10 @@ Hooks.once("ready", async () => {
       addPartyNoteImages: store.addPartyNoteImages,
       sharePartyNote: id => PartyNoteSheet.share(id)
     };
+    crumb("module.ready", { responsibleGM: isResponsibleGM(), storesReady: store.storesReady() });
   } catch (err) {
     console.error(`${MODULE_ID} | ready`, err);
+    noteError("ready");
   }
 });
 
@@ -342,11 +437,15 @@ for (const hook of ["createJournalEntry", "deleteJournalEntry"]) {
 Hooks.on("updateJournalEntry", (doc, changes, options, userId) => {
   try {
     if (!store.isStore(doc)) return;
+    const event = options?.[MODULE_ID];
+    // Only this module's own event type (an enum such as "created" or "reward-used") and who acted: never titles.
+    crumb("store.update", { event: /^[a-z-]{1,40}$/.test(event?.type ?? "") ? event.type : "none", own: userId === game.user.id });
     refreshAll();
     notifyChange(options?.[MODULE_ID], userId);
     offerRewardsOnCompletion(options?.[MODULE_ID], userId);
   } catch (err) {
     console.error(`${MODULE_ID} | updateJournalEntry`, err);
+    noteError("updateJournalEntry");
   }
 });
 

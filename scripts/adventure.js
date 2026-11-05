@@ -3,6 +3,7 @@ import {
   STORE_KINDS, getStore, getQuest, setHidden, setPartHidden, getReward, setRewardHidden, getPartyNote, setPartyNoteHidden
 } from "./store.js";
 import { parseExportData, sanitizeQuest, sanitizeReward, sanitizePartyNote, withoutHiddenParts } from "./transfer.js";
+import { crumb, noteError } from "./debug-recorder.js";
 
 /*
  * Adventures and the quest log.
@@ -93,6 +94,7 @@ export async function consolidateStores({ newIds = new Set() } = {}) {
   }
   await JournalEntry.implementation.deleteDocuments(extras.map(e => e.doc.id));
   console.log(`${MODULE_ID} | merged ${extras.length} duplicate quest log journal(s), ${moved} quest(s) moved`);
+  crumb("migration.consolidateStores", { duplicates: extras.length, questsMoved: moved, justImported: newIds.size });
   return moved;
 }
 
@@ -146,6 +148,7 @@ export async function importAdventureQuests(adventure, { notify = true, quests =
     parsed = parseExportData(data, { hiddenByDefault: true });
   } catch (err) {
     ui.notifications.error(t("Adventure.ReadError", { title: escapeHTML(adventure.name), error: escapeHTML(err.message) }));
+    noteError("adventure.parse");
     return null;
   }
 
@@ -199,6 +202,7 @@ export async function importAdventureQuests(adventure, { notify = true, quests =
     if (Object.keys(noteMaps[kind]).length) update[PARTY_NOTE_PATH] = noteMaps[kind];
     if (Object.keys(update).length) await stores[kind].update(update, options);
   }
+  crumb("adventure.import", { ...result, quests: !!quests, withRewards: !!rewards, withPartyNotes: !!partyNotes });
   if (notify) {
     const title = escapeHTML(adventure.name);
     if (result.added) ui.notifications.info(t("Adventure.Imported", { count: result.added, hidden: result.hidden, title }));
@@ -249,6 +253,7 @@ export async function storeInAdventure(adventure, { includeHidden = true } = {})
   try {
     await adventure.update({ [`flags.${MODULE_ID}.${ADVENTURE_FLAG}`]: data });
   } catch (err) {
+    noteError("adventure.store");
     return ui.notifications.error(t("Adventure.StoreError", { title: escapeHTML(adventure.name), error: escapeHTML(err.message) }));
   }
   ui.notifications.info(t("Adventure.Stored", { count: quests.length, title: escapeHTML(adventure.name) }));
@@ -578,6 +583,7 @@ export function registerAdventureHooks() {
       if (adventureQuestData(adventure) && Object.values(choice).some(Boolean)) await importAdventureQuests(adventure, choice);
     } catch (err) {
       console.error(`${MODULE_ID} | importAdventure`, err);
+      noteError("adventure.hook");
     }
   });
 }
