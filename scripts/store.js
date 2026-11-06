@@ -2,6 +2,7 @@ import {
   MODULE_ID, STATUSES, NOTE_TYPES, HIDEABLE_FIELDS, PART_KINDS, QUEST_TYPES, LINK_TYPES, MAX_USES, t, isResponsibleGM, randomId, cleanLine, cleanTag
 } from "./util.js";
 import { newMentions, mentionedFaces, partyKnows } from "./npcs.js";
+import { crumb } from "./debug-recorder.js";
 
 /*
  * Quests live in the flags of two journal entries that the module creates and hides from the Journal directory:
@@ -378,7 +379,10 @@ export async function setStatus(id, status) {
   if (!STATUSES.includes(status)) return;
   const quest = getQuest(id);
   if (!quest || quest.status === status) return;
-  return patch(id, { status, closedAt: status === "active" ? 0 : Date.now() }, { type: `status-${status}`, title: quest.title });
+  const result = await patch(id, { status, closedAt: status === "active" ? 0 : Date.now() }, { type: `status-${status}`, title: quest.title });
+  // After the write, so a failed or cancelled write (update() resolves undefined) never shows up as a change.
+  if (result) crumb("quest.status", { from: quest.status, to: status, hidden: quest.hidden });
+  return result;
 }
 
 export async function deleteQuest(id) {
@@ -992,8 +996,10 @@ export async function useReward(id) {
   const now = Date.now();
   const last = reward.usesLeft <= 1;
   const left = Math.max(0, reward.usesLeft - 1);
-  return patchReward(id, { uses: { [uid]: { by: game.user.id, at: now, sort: now } }, ...(last ? { claimedAt: now } : {}) },
+  const result = await patchReward(id, { uses: { [uid]: { by: game.user.id, at: now, sort: now } }, ...(last ? { claimedAt: now } : {}) },
     { type: last ? "reward-usedup" : "reward-used", title: reward.name, left, max: reward.maxUses });
+  if (result) crumb("reward.use", { left, max: reward.maxUses, perCharacter: reward.perCharacter > 0, usedUp: last });
+  return result;
 }
 
 /** Takes back the latest use (a misclick). A reward that was used up becomes active again. */

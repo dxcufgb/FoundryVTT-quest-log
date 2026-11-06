@@ -2,13 +2,15 @@ import {
   MODULE_ID, STATUSES, NOTE_TYPES, HIDEABLE_FIELDS, PART_KINDS, QUEST_TYPES, LINK_TYPES, MAX_USES, t, escapeHTML, randomId, cleanLine, cleanTag
 } from "./util.js";
 import { STORE_KINDS, getStore } from "./store.js";
+import { crumb, noteError } from "./debug-recorder.js";
 
 /*
  * GM export / import of the whole quest log (quests, quest rewards and the party's notes) as a JSON file.
  * Images are exported as paths (not embedded); they show up after an import when the files exist on that server.
  */
 
-const FORMAT = 1;
+/** The export file format (also reported to the Debug Recorder). */
+export const FORMAT = 1;
 const FLAG_PATH = `flags.${MODULE_ID}.quests`;
 const REWARD_PATH = `flags.${MODULE_ID}.rewards`;
 const PARTY_NOTE_PATH = `flags.${MODULE_ID}.partyNotes`;
@@ -466,6 +468,7 @@ export async function importQuests(file = null) {
   try {
     parsed = parseExport(await foundry.utils.readTextFromFile(file));
   } catch (err) {
+    noteError("transfer.parse");
     return ui.notifications.error(t("Transfer.ReadError", { name: escapeHTML(file.name), error: escapeHTML(err.message) }));
   }
 
@@ -561,6 +564,10 @@ export async function importQuests(file = null) {
     if (Object.keys(noteMap).length) update[PARTY_NOTE_PATH] = noteMap;
     if (Object.keys(update).length) await stores[kind].update(update, options);
   }
+  crumb("transfer.import", {
+    mode: mode === "replace" ? "replace" : "merge", quests: parsed.quests.length, rewards: parsed.rewards.length,
+    partyNotes: parsed.partyNotes.length, overlap, hidden
+  });
   ui.notifications.info(t(parsed.partyNotes.length ? "Transfer.ImportedAll" : parsed.rewards.length ? "Transfer.ImportedWithRewards" : "Transfer.Imported",
     { count: parsed.quests.length, rewards: parsed.rewards.length, notes: parsed.partyNotes.length }));
 }

@@ -9,6 +9,7 @@ import { QuestSheet } from "./quest-sheet.js";
 import { RewardSheet } from "./reward-sheet.js";
 import { PartyNoteSheet, PARTY_NOTE_ICON } from "./party-note-sheet.js";
 import { exportQuests, importQuests } from "../transfer.js";
+import { crumb } from "../debug-recorder.js";
 
 const { HandlebarsApplicationMixin } = foundry.applications.api;
 const { AbstractSidebarTab } = foundry.applications.sidebar;
@@ -460,6 +461,10 @@ export class QuestLogTab extends HandlebarsApplicationMixin(AbstractSidebarTab) 
 
   async _onRender(context, options) {
     await super._onRender(context, options);
+    crumb("app.render", {
+      app: "tab", view: this.view, popout: !!this.isPopout, first: !!options.isFirstRender, parts: (options.parts ?? []).length,
+      ready: !!context.ready
+    });
     const input = this.element.querySelector("input[name=search]");
     if (input && options.parts?.includes("header")) {
       input.addEventListener("input", foundry.utils.debounce(event => {

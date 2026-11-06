@@ -78,6 +78,10 @@ System-agnostic. No build step and no npm dependencies.
   duplicate store journals an adventure brings in; the `@Quest[id]{label}` enricher (and `@Quest[id/<part kind>/<partId>]` for one stage, objective, note or place) with a GM Reveal / Unhide button
   (a delegated document click listener), `@Reward[id]{label}` / `@PartyNote[id]{label}` the same way for rewards / notes; `storeInAdventure` writes the
   log (quests, rewards and notes) into an Adventure.
+- `scripts/debug-recorder.js` – optional integration with Dxcufgb's Debug Recorder (`dxcufgbs-debug-recorder`, not a
+  dependency): `crumb(key, data)` breadcrumbs (no-op unless it is recording), `noteError(code)` (counts caught errors by
+  a fixed code for the snapshot) and `registerDebugRecorder({ snapshot })`, called in `ready` with `debugSnapshot` from
+  `main.js`. Load order doesn't matter: it listens for `dxcufgbs-debug-recorder.ready` from import time and registers once.
 - `scripts/search.js` – word-AND search over all quest text, snippets and highlighting.
 - `scripts/util.js` – constants, `t()`, `escapeHTML`, `enrich` (escape → `<br>` → enrichHTML), helpers.
 - `templates/*.hbs`, `styles/quest-log.css` (theme tokens on `.dxql`, light/dark), `lang/en.json` (`DXQL.*`).
@@ -115,5 +119,10 @@ System-agnostic. No build step and no npm dependencies.
   `secret` store only. Adventure imports never overwrite a quest that is already in the log (players' progress).
 - **Saving the edit form**: only the form's `submit` event saves (the submit button has no `data-action`, or a
   click would save twice); `_saving` guards against double submits.
+- **Debug Recorder**: debug-recorder integration is optional; snapshot/breadcrumb data must never contain names, free
+  text, image paths or URLs (no quest titles, objectives, notes, clues, rewards, tags, NPC or user names, search text).
+  Only counts, booleans, numbers, this module's own enum values (fixed lists, e.g. the store event types in `EVENT_TYPES`)
+  and plain numeric module version strings; document ids only as `docId` / `docIds`. A recorder error must never break
+  this module.
 - **Permissions**: deleting checks `store.canDelete(createdBy)` (GM, own entry, or the `playersCanDelete`
   setting); editing a note is limited to its author and GMs.
