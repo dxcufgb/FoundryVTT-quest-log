@@ -62,15 +62,35 @@ function snapshot() {
   }
 }
 
-/** Registers with the recorder once (whichever of its ready hook or the fallback comes first). */
+/** How often a failed registration is retried, and how long to wait between tries. */
+const RETRIES = 3;
+const RETRY_MS = 5000;
+let retries = 0;
+
+/**
+ * Registers with the recorder once (whichever of its ready hook or the fallback comes first). The API is only kept
+ * once `register` succeeded, so a failed registration doesn't block the other path; it is also retried a few times.
+ */
 function connect(rec) {
   if (recorder || !rec || typeof rec.register !== "function") return;
-  recorder = rec;
   try {
     rec.register(MODULE_ID, { snapshot });
+    recorder = rec;
   } catch (err) {
     console.warn(`${MODULE_ID} | debug recorder registration failed`, err);
+    if (retries++ < RETRIES) setTimeout(() => connect(rec), RETRY_MS);
   }
+}
+
+/** Image types reported to the recorder: a fixed list of this module's own values, anything else is "other". */
+const IMAGE_TYPES = {
+  "image/png": "png", "image/jpeg": "jpeg", "image/webp": "webp", "image/gif": "gif", "image/svg+xml": "svg",
+  "image/avif": "avif", "image/bmp": "bmp"
+};
+
+/** A file's MIME type as one of IMAGE_TYPES' values, or "other". */
+export function imageKind(mime) {
+  return IMAGE_TYPES[String(mime ?? "").toLowerCase()] ?? "other";
 }
 
 // Listen from import time, so the recorder's ready hook is never missed whatever the load order.

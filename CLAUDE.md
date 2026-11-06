@@ -121,7 +121,8 @@ System-agnostic. No build step and no npm dependencies.
   click would save twice); `_saving` guards against double submits.
 - **Debug Recorder**: debug-recorder integration is optional; snapshot/breadcrumb data must never contain names, free
   text, image paths or URLs (no quest titles, objectives, notes, clues, rewards, tags, NPC or user names, search text).
-  Only counts, booleans, numbers and this module's own enum values; document ids only as `docId` / `docIds`. A recorder
-  error must never break this module.
+  Only counts, booleans, numbers, this module's own enum values (fixed lists, e.g. the store event types in `EVENT_TYPES`)
+  and plain numeric module version strings; document ids only as `docId` / `docIds`. A recorder error must never break
+  this module.
 - **Permissions**: deleting checks `store.canDelete(createdBy)` (GM, own entry, or the `playersCanDelete`
   setting); editing a note is limited to its author and GMs.

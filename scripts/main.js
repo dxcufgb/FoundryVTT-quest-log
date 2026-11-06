@@ -1,4 +1,4 @@
-import { MODULE_ID, FACES_ID, STATUSES, QUEST_TYPES, REWARD_STATUSES, PART_KINDS, t, escapeHTML, isResponsibleGM } from "./util.js";
+import { MODULE_ID, FACES_ID, STATUSES, QUEST_TYPES, REWARD_STATUSES, PART_KINDS, NOTE_TYPES, t, escapeHTML, isResponsibleGM } from "./util.js";
 import * as store from "./store.js";
 import { QuestLogTab, GROUP_MODES, REWARD_GROUP_MODES, NOTE_GROUP_MODES, NOTE_FILTERS, VIEWS } from "./apps/quest-log-tab.js";
 import { QuestSheet } from "./apps/quest-sheet.js";
@@ -264,6 +264,23 @@ async function offerCategoryConversion() {
 /*  Debug Recorder snapshot (optional)          */
 /* -------------------------------------------- */
 
+/**
+ * The event types this module puts in its journal updates' options (store.js, adventure.js, transfer.js). Only these
+ * go into the store.update breadcrumb; anything else is reported as "other".
+ */
+const EVENT_TYPES = new Set([
+  "created", "deleted", "deleted-all", "hidden", "revealed", "moved", "imported", "converted",
+  ...STATUSES.map(s => `status-${s}`), ...PART_KINDS.map(k => `revealed-${k}`), "revealed-field",
+  "objective-added", "stage-added", "item-added", "npc-added", ...NOTE_TYPES.map(n => `${n}-added`),
+  "reward-created", "reward-deleted", "reward-deleted-all", "reward-hidden", "reward-revealed", "reward-moved",
+  "reward-used", "reward-usedup", "reward-restored", "reward-claimed",
+  "note-created", "note-deleted", "note-deleted-all", "note-hidden", "note-revealed", "note-moved"
+]);
+const eventType = type => (typeof type !== "string" || !type ? "none" : EVENT_TYPES.has(type) ? type : "other");
+
+/** A module version as reported (e.g. "1.2.0"), only when it is a plain numeric version; otherwise null. */
+const versionString = v => (typeof v === "string" && /^\d{1,4}(\.\d{1,6}){1,3}$/.test(v) ? v : null);
+
 const countBy = (list, key, values) => Object.fromEntries(values.map(v => [v, list.filter(e => e[key] === v).length]));
 
 /**
@@ -343,7 +360,7 @@ function debugSnapshot() {
     integrations: {
       familiarFaces: !!game.modules.get(FACES_ID)?.active,
       familiarFacesApi: facesActive(),
-      familiarFacesVersion: game.modules.get(FACES_ID)?.active ? game.modules.get(FACES_ID).version ?? null : null
+      familiarFacesVersion: game.modules.get(FACES_ID)?.active ? versionString(game.modules.get(FACES_ID).version) : null
     },
     errors: errorSummary()
   };
@@ -439,7 +456,7 @@ Hooks.on("updateJournalEntry", (doc, changes, options, userId) => {
     if (!store.isStore(doc)) return;
     const event = options?.[MODULE_ID];
     // Only this module's own event type (an enum such as "created" or "reward-used") and who acted: never titles.
-    crumb("store.update", { event: /^[a-z-]{1,40}$/.test(event?.type ?? "") ? event.type : "none", own: userId === game.user.id });
+    crumb("store.update", { event: eventType(event?.type), own: userId === game.user.id });
     refreshAll();
     notifyChange(options?.[MODULE_ID], userId);
     offerRewardsOnCompletion(options?.[MODULE_ID], userId);

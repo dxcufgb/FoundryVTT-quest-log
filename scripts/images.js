@@ -1,5 +1,5 @@
 import { MODULE_ID, t, randomId, escapeHTML } from "./util.js";
-import { crumb, noteError } from "./debug-recorder.js";
+import { crumb, noteError, imageKind } from "./debug-recorder.js";
 
 /*
  * Image uploads. Users with Foundry's "Upload new files" permission upload directly into the world's quest-log
@@ -145,8 +145,7 @@ async function uploadViaGM(file) {
 export async function uploadImage(file) {
   const prepared = await prepare(file);
   const direct = game.user.can("FILES_UPLOAD");
-  const type = prepared.type.split("/")[1] ?? "";
-  crumb("image.upload", { route: direct ? "direct" : "relay", type: /^[a-z0-9.+-]{1,20}$/.test(type) ? type : "other" });
+  crumb("image.upload", { route: direct ? "direct" : "relay", type: imageKind(prepared.type) });
   if (direct) return uploadDirect(prepared);
   return uploadViaGM(prepared);
 }
