@@ -240,7 +240,6 @@ async function offerCategoryConversion() {
   if (!game.settings.get(MODULE_ID, "categoryTagsPrompt")) return;
   const count = store.countCategoryTags();
   if (!count) return;
-
   const choice = await foundry.applications.api.DialogV2.wait({
     window: { title: t("Convert.Title"), icon: "fa-solid fa-wand-magic-sparkles" },
     position: { width: 440 },

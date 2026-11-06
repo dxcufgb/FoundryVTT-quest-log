@@ -379,8 +379,10 @@ export async function setStatus(id, status) {
   if (!STATUSES.includes(status)) return;
   const quest = getQuest(id);
   if (!quest || quest.status === status) return;
+  const result = await patch(id, { status, closedAt: status === "active" ? 0 : Date.now() }, { type: `status-${status}`, title: quest.title });
+  // After the write, so a failed write never shows up as a change that happened.
   crumb("quest.status", { from: quest.status, to: status, hidden: quest.hidden });
-  return patch(id, { status, closedAt: status === "active" ? 0 : Date.now() }, { type: `status-${status}`, title: quest.title });
+  return result;
 }
 
 export async function deleteQuest(id) {
@@ -994,9 +996,10 @@ export async function useReward(id) {
   const now = Date.now();
   const last = reward.usesLeft <= 1;
   const left = Math.max(0, reward.usesLeft - 1);
-  crumb("reward.use", { left, max: reward.maxUses, perCharacter: reward.perCharacter > 0, usedUp: last });
-  return patchReward(id, { uses: { [uid]: { by: game.user.id, at: now, sort: now } }, ...(last ? { claimedAt: now } : {}) },
+  const result = await patchReward(id, { uses: { [uid]: { by: game.user.id, at: now, sort: now } }, ...(last ? { claimedAt: now } : {}) },
     { type: last ? "reward-usedup" : "reward-used", title: reward.name, left, max: reward.maxUses });
+  crumb("reward.use", { left, max: reward.maxUses, perCharacter: reward.perCharacter > 0, usedUp: last });
+  return result;
 }
 
 /** Takes back the latest use (a misclick). A reward that was used up becomes active again. */
