@@ -380,8 +380,8 @@ export async function setStatus(id, status) {
   const quest = getQuest(id);
   if (!quest || quest.status === status) return;
   const result = await patch(id, { status, closedAt: status === "active" ? 0 : Date.now() }, { type: `status-${status}`, title: quest.title });
-  // After the write, so a failed write never shows up as a change that happened.
-  crumb("quest.status", { from: quest.status, to: status, hidden: quest.hidden });
+  // After the write, so a failed or cancelled write (update() resolves undefined) never shows up as a change.
+  if (result) crumb("quest.status", { from: quest.status, to: status, hidden: quest.hidden });
   return result;
 }
 
@@ -998,7 +998,7 @@ export async function useReward(id) {
   const left = Math.max(0, reward.usesLeft - 1);
   const result = await patchReward(id, { uses: { [uid]: { by: game.user.id, at: now, sort: now } }, ...(last ? { claimedAt: now } : {}) },
     { type: last ? "reward-usedup" : "reward-used", title: reward.name, left, max: reward.maxUses });
-  crumb("reward.use", { left, max: reward.maxUses, perCharacter: reward.perCharacter > 0, usedUp: last });
+  if (result) crumb("reward.use", { left, max: reward.maxUses, perCharacter: reward.perCharacter > 0, usedUp: last });
   return result;
 }
 
