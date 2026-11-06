@@ -69,13 +69,14 @@ let retries = 0;
 
 /**
  * Registers with the recorder once (whichever of its ready hook or the fallback comes first). The API is only kept
- * once `register` succeeded, so a failed registration doesn't block the other path; it is also retried a few times.
+ * once `register` succeeded (it returns false on failure), so a failed registration doesn't block the other path; it is
+ * also retried a few times.
  */
 function connect(rec) {
   if (recorder || !rec || typeof rec.register !== "function") return;
   try {
-    rec.register(MODULE_ID, { snapshot });
-    recorder = rec;
+    if (rec.register(MODULE_ID, { snapshot }) !== false) recorder = rec;
+    else if (retries++ < RETRIES) setTimeout(() => connect(rec), RETRY_MS);
   } catch (err) {
     console.warn(`${MODULE_ID} | debug recorder registration failed`, err);
     if (retries++ < RETRIES) setTimeout(() => connect(rec), RETRY_MS);
