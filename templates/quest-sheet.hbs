@@ -484,8 +484,10 @@
         <button type="button" class="{{#if (eq composer.type "clue")}}active{{/if}}" data-action="setComposerType" data-type="clue"
                 role="radio" aria-checked="{{eq composer.type "clue"}}"><i class="fa-solid fa-magnifying-glass" inert></i> {{localize "DXQL.Clue"}}</button>
       </div>
-      <textarea data-bind="composer.text" data-drop="link" data-keys="composer" rows="3"
-                placeholder="{{#if (eq composer.type "clue")}}{{localize "DXQL.Placeholder.Clue"}}{{else}}{{localize "DXQL.Placeholder.Note"}}{{/if}}">{{composer.text}}</textarea>
+      <div class="dxql-npc-picker-wrap">
+        <textarea data-bind="composer.text" data-drop="link" data-keys="composer" rows="3" data-npc-picker-field
+                  placeholder="{{#if (eq composer.type "clue")}}{{localize "DXQL.Placeholder.Clue"}}{{else}}{{localize "DXQL.Placeholder.Note"}}{{/if}}">{{composer.text}}</textarea>
+      </div>
       {{#if composer.images.length}}
       <div class="dxql-attachments">
         {{#each composer.images}}
@@ -542,7 +544,9 @@
         </header>
         {{#if editing}}
         <div class="dxql-note-editor" data-drop="noteEdit">
-          <textarea data-bind="editNote.text" data-drop="link" data-keys="noteEdit" rows="4">{{editText}}</textarea>
+          <div class="dxql-npc-picker-wrap">
+            <textarea data-bind="editNote.text" data-drop="link" data-keys="noteEdit" rows="4" data-npc-picker-field>{{editText}}</textarea>
+          </div>
           <div class="dxql-attachments">
             {{#each editImages}}
             <figure class="dxql-thumb small">

@@ -433,7 +433,7 @@ export class QuestSheet extends HandlebarsApplicationMixin(ApplicationV2) {
       const evt = field.type === "checkbox" ? "change" : "input";
       field.addEventListener(evt, () => this.#bind(field));
     }
-    // "@" + a name in objectives offers Familiar Faces & Places NPCs (before the Enter-to-save listeners below).
+    // "@" + a name in objectives, notes and clues offers Familiar Faces & Places NPCs (before the Enter-to-save listeners below).
     for (const field of root.querySelectorAll("[data-npc-picker-field]")) attachNpcPicker(field);
     for (const field of root.querySelectorAll("[data-keys]")) {
       field.addEventListener("keydown", event => this.#onKeyDown(event, field.dataset.keys));
