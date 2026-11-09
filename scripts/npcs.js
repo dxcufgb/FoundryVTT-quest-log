@@ -80,10 +80,16 @@ export function mentionedFaces(text) {
   return [...found.values()];
 }
 
-/** The NPCs a new text mentions that the old text didn't (so editing a text never re-adds a removed NPC). */
+/**
+ * The NPCs a new text mentions that the old text didn't (so editing a text never re-adds a removed NPC). An NPC the old
+ * text only named counts as new once the text links it: turning a name into a link is a new mention (and catches texts
+ * written before they were tracked).
+ */
 export function newMentions(text, oldText = "") {
-  const before = new Set(mentionedFaces(oldText).map(m => m.face.id));
-  return mentionedFaces(text).filter(m => !before.has(m.face.id));
+  const old = mentionedFaces(oldText);
+  const before = new Set(old.map(m => m.face.id));
+  const linkedBefore = new Set(old.filter(m => m.linked).map(m => m.face.id));
+  return mentionedFaces(text).filter(m => !before.has(m.face.id) || (m.linked && !linkedBefore.has(m.face.id)));
 }
 
 /** The text of a link to an NPC. */
