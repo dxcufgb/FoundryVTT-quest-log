@@ -339,7 +339,7 @@ export async function setPartHidden(id, kind, partId, hidden) {
   const event = hidden ? null : { type: `revealed-${kind}`, noteType: part.type ?? null, title: raw.title };
   // The GM's own eye button on an NPC decides from now on: revealing a text no longer changes it.
   const update = { [kind]: { [partId]: kind === "npcs" ? { hidden: !!hidden, autoHidden: false } : { hidden: !!hidden } } };
-  if (!hidden && (kind === "objectives" || kind === "stages")) {
+  if (!hidden && ["objectives", "stages", "notes"].includes(kind)) {
     const npcs = npcsRevealedWith(raw, kind, partId);
     if (Object.keys(npcs).length) update.npcs = npcs;
   }
@@ -616,7 +616,7 @@ function mentionedNpcs(raw, text, oldText, hidden) {
 }
 
 /**
- * Revealing an objective or stage also reveals the NPCs it brought in hidden (autoHidden, not hidden by the GM's eye
+ * Revealing an objective, stage or note / clue also reveals the NPCs it brought in hidden (autoHidden, not hidden by the GM's eye
  * button), when the party knows them. A stage's text counts with its objectives that players will see once it is
  * revealed; an objective of a stage that is still hidden reveals nothing.
  */
@@ -660,6 +660,8 @@ export async function addNote(id, { type = "note", text = "", images = [], sourc
   if (!clean && !images.length) return null;
   const nid = randomId();
   const now = Date.now();
+  const secret = !!(hidden && game.user.isGM);
+  const npcs = clean ? mentionedNpcs(rawQuest(id)?.raw, clean, "", secret) : {};
   await patch(id, {
     notes: {
       [nid]: {
@@ -667,23 +669,31 @@ export async function addNote(id, { type = "note", text = "", images = [], sourc
         text: clean,
         images: [...images],
         source: source?.uuid ? { uuid: source.uuid, label: cleanLine(source.label, 120) } : null,
-        hidden: !!(hidden && game.user.isGM),
+        hidden: secret,
         createdBy: game.user.id,
         createdAt: now,
         sort: now
       }
-    }
+    },
+    ...(Object.keys(npcs).length ? { npcs } : {})
   }, { type: `${type}-added` });
   return nid;
 }
 
 export async function updateNote(id, nid, data) {
   const change = {};
-  if ("text" in data) change.text = String(data.text ?? "").trim();
+  const update = { notes: { [nid]: change } };
+  if ("text" in data) {
+    change.text = String(data.text ?? "").trim();
+    const raw = rawQuest(id)?.raw;
+    const old = raw?.notes?.[nid];
+    const npcs = mentionedNpcs(raw, change.text, old?.text, !!old?.hidden);
+    if (Object.keys(npcs).length) update.npcs = npcs;
+  }
   if ("type" in data && NOTE_TYPES.includes(data.type)) change.type = data.type;
   if ("images" in data) change.images = [...data.images];
   if ("text" in data || "images" in data) change.editedAt = Date.now();
-  return patch(id, { notes: { [nid]: change } });
+  return patch(id, update);
 }
 
 export async function deleteNote(id, nid) {

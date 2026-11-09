@@ -4,7 +4,7 @@ import { MODULE_ID, FACES_ID, t, escapeHTML, escapeRegExp, cleanLine, facesApi }
  * NPCs from Dxcufgb's Familiar Faces & Places in quest text.
  *   - @NPC[faceId]{label} links one of its NPCs. It opens the NPC's page for users who know the NPC there; everyone
  *     else sees the label as plain text (the label is what the writer typed, so it never shows more than the text).
- *   - Typing "@" and a few letters in an objective or stage offers the NPCs the user knows (attachNpcPicker).
+ *   - Typing "@" and a few letters in an objective, stage, note or clue offers the NPCs the user knows (attachNpcPicker).
  *   - mentionedFaces finds the NPCs a text links, and the ones the whole party knows that it names, so the store can
  *     add them to the quest's Related NPCs.
  */
@@ -80,10 +80,16 @@ export function mentionedFaces(text) {
   return [...found.values()];
 }
 
-/** The NPCs a new text mentions that the old text didn't (so editing a text never re-adds a removed NPC). */
+/**
+ * The NPCs a new text mentions that the old text didn't (so editing a text never re-adds a removed NPC). An NPC the old
+ * text only named counts as new once the text links it: turning a name into a link is a new mention (and catches texts
+ * written before they were tracked).
+ */
 export function newMentions(text, oldText = "") {
-  const before = new Set(mentionedFaces(oldText).map(m => m.face.id));
-  return mentionedFaces(text).filter(m => !before.has(m.face.id));
+  const old = mentionedFaces(oldText);
+  const before = new Set(old.map(m => m.face.id));
+  const linkedBefore = new Set(old.filter(m => m.linked).map(m => m.face.id));
+  return mentionedFaces(text).filter(m => !before.has(m.face.id) || (m.linked && !linkedBefore.has(m.face.id)));
 }
 
 /** The text of a link to an NPC. */
