@@ -3,6 +3,7 @@ import {
   locationSuggestions, getDropData, linkForDrop, insertAtCursor, randomId, escapeHTML
 } from "../util.js";
 import * as store from "../store.js";
+import { attachNpcPicker } from "../npcs.js";
 import { tokenize, markTerms } from "../search.js";
 import { uploadImages, pickFiles, browseImage, canBrowse, filesFromEvent, urlFromDrop, showImage } from "../images.js";
 
@@ -346,6 +347,8 @@ export class PartyNoteSheet extends HandlebarsApplicationMixin(ApplicationV2) {
       const evt = field.type === "checkbox" || field.tagName === "SELECT" ? "change" : "input";
       field.addEventListener(evt, () => this.#bind(field));
     }
+    // "@" + a name in the text offers Familiar Faces & Places NPCs.
+    for (const field of root.querySelectorAll("[data-npc-picker-field]")) attachNpcPicker(field);
     root.querySelector("[data-bind=tagInput]")?.addEventListener("keydown", event => {
       if (["Enter", ","].includes(event.key) && event.target.value.trim()) {
         event.preventDefault();

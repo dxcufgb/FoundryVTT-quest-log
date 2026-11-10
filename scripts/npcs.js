@@ -4,7 +4,7 @@ import { MODULE_ID, FACES_ID, t, escapeHTML, escapeRegExp, cleanLine, facesApi }
  * NPCs from Dxcufgb's Familiar Faces & Places in quest text.
  *   - @NPC[faceId]{label} links one of its NPCs. It opens the NPC's page for users who know the NPC there; everyone
  *     else sees the label as plain text (the label is what the writer typed, so it never shows more than the text).
- *   - Typing "@" and a few letters in an objective, stage, note or clue offers the NPCs the user knows (attachNpcPicker).
+ *   - Typing "@" and a few letters in an objective, stage, note, clue or party note offers the NPCs the user knows (attachNpcPicker).
  *   - mentionedFaces finds the NPCs a text links, and the ones the whole party knows that it names, so the store can
  *     add them to the quest's Related NPCs.
  */

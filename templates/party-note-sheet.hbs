@@ -28,8 +28,10 @@
 
     <div class="dxql-field wide">
       <label for="{{appId}}-text">{{localize "DXQL.PartyNote.Field.Text"}}</label>
-      <textarea id="{{appId}}-text" data-bind="draft.text" data-drop="text" rows="9"
-                placeholder="{{localize "DXQL.PartyNote.Placeholder.Text"}}">{{draft.text}}</textarea>
+      <div class="dxql-npc-picker-wrap">
+        <textarea id="{{appId}}-text" data-bind="draft.text" data-drop="text" rows="9" data-npc-picker-field
+                  placeholder="{{localize "DXQL.PartyNote.Placeholder.Text"}}">{{draft.text}}</textarea>
+      </div>
       <p class="dxql-hint">{{localize "DXQL.PartyNote.Hint.Text"}}</p>
     </div>
 

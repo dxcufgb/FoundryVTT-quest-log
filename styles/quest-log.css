@@ -588,7 +588,7 @@
 
 /* "@" pick list of Familiar Faces & Places NPCs under a text field. */
 .dxql-npc-picker-host { position: relative; }
-/* A note or clue box in its own wrapper, so the pick list opens right under the text, not under the whole composer. */
+/* A note, clue or party note text box in its own wrapper, so the pick list opens right under the text, not under the whole composer. */
 .dxql .dxql-npc-picker-wrap { display: flex; flex-direction: column; }
 .dxql-npc-picker {
   position: absolute; z-index: 100; left: 0; top: 100%; min-width: 200px; max-width: 320px; margin: 2px 0 0; padding: 4px;
