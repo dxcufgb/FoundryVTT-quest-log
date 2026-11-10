@@ -191,7 +191,9 @@ export function attachNpcPicker(field) {
   };
   const pick = index => {
     const face = matches[index];
-    if (!face || start < 0) return close();
+    // The caret may have moved since the list opened: replace only the "@name" still being typed there.
+    const cur = typed();
+    if (!face || start < 0 || !cur || cur.at !== start) return close();
     const pos = field.selectionStart ?? field.value.length;
     const link = npcLinkText(face);
     const after = field.value.slice(pos);
@@ -223,6 +225,13 @@ export function attachNpcPicker(field) {
       event.stopImmediatePropagation();
       close();
     }
+  });
+  // Moving the caret (arrow keys, Home / End, a click) updates or closes the list.
+  field.addEventListener("keyup", event => {
+    if (!menu.hidden && ["ArrowLeft", "ArrowRight", "Home", "End", "PageUp", "PageDown"].includes(event.key)) show();
+  });
+  field.addEventListener("click", () => {
+    if (!menu.hidden) show();
   });
   field.addEventListener("blur", () => setTimeout(close, 150));
   // mousedown, not click: the field keeps its focus (an objective being edited saves when it loses focus).
