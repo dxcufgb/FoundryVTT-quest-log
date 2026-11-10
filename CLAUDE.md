@@ -27,7 +27,7 @@ System-agnostic. No build step and no npm dependencies.
   ticked in the quest window (`addItem` / `updateItem` / `deleteItem`), like objectives.
   Related NPCs are keyed `npcs.<id>` ({name, faceId, uuid, img, auto, hidden, sort, createdBy}; part kind `npcs`).
 - `scripts/npcs.js` – Familiar Faces & Places NPCs in quest text: the `@NPC[faceId]{label}` enricher (a link only for
-  users who know the NPC there), the "@" pick list (`attachNpcPicker`, on objective inputs, the note / clue boxes and the stage dialog) and
+  users who know the NPC there), the "@" pick list (`attachNpcPicker`, on objective inputs, the note / clue boxes, the stage dialog and the party note text) and
   `mentionedFaces` / `newMentions`. `addObjective` / `updateObjective` / `addStage` / `updateStage` / `addNote` / `updateNote` / `createQuest`
   add the NPCs a text newly mentions to `npcs` in the same patch (`auto: true`; hidden when the text is hidden, or a
   GM's link to an NPC the party doesn't know, with `autoHidden`; a player's link to such an NPC adds nothing). Revealing an
